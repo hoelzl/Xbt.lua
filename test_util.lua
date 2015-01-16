@@ -21,15 +21,12 @@ local jit = jit
 local t = {}
 
 function t.test_uuid ()
-  math.randomseed(1234)
-  -- This is pretty fragile, but I don't know how to do it 
-  -- in a more portable fashion
-  -- The value for LuaJIT is for version 2.0.3, Lua version is
-  -- 5.1.5 (OS X, Windows, Linux).
-  assert_equal((jit and "a305d7dd-19ca-4ed9-a125-b5c164a7") or 
-    "7eb4e721-8e60-4731-a365-89b88e3f",
-    util.uuid(),
-    "Generate uuid")
+  -- Only test for the correct pattern.
+  assert_true(string.match(
+      util.uuid(),
+      "%x%x%x%x%x%x%x%x%-%x%x%x%x%-4%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x"))
+  -- Check that freshly generated uuids are distinct
+  assert_not_equal(util.uuid(), util.uuid())
 end
 
 function t.test_size ()
