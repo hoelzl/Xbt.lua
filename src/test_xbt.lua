@@ -33,4 +33,9 @@ function t.test_is_status ()
   assert_false(xbt.is_status("succeeded"))
 end
 
+function t.test_make_state ()
+  assert_true(util.equal(xbt.make_state(),
+      {blackboard={}, node_status={}, improve=false}))
+end
+
 return t

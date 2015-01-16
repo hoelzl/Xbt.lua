@@ -103,11 +103,29 @@ function t.test_append ()
   assert_true(util.equal(util.append({1,2,3}, {4,5,6}), {1,2,3,4,5,6}))
 end
 
-function t.test_maybe_add ()
+function t.test_maybe_add_1 ()
   assert_true(util.equal(util.maybe_add({}, "foo"), {foo={}}))
   assert_true(util.equal(util.maybe_add({bar="bar"}, "foo"),
       {foo={}, bar="bar"}))
   assert_true(util.equal(util.maybe_add({bar="bar"}, "bar"),
+      {bar="bar"}))
+end
+
+function t.test_maybe_add_2 ()
+  assert_true(util.equal(util.maybe_add({}, "foo", true),
+      {foo=true}))
+  assert_true(util.equal(util.maybe_add({bar="bar"}, "foo", true),
+      {foo=true, bar="bar"}))
+  assert_true(util.equal(util.maybe_add({bar="bar"}, "bar", true),
+      {bar="bar"}))
+end
+
+function t.test_maybe_add_3 ()
+  assert_true(util.equal(util.maybe_add({}, "foo", false),
+      {foo=false}))
+  assert_true(util.equal(util.maybe_add({bar="bar"}, "foo", false),
+      {foo=false, bar="bar"}))
+  assert_true(util.equal(util.maybe_add({bar="bar"}, "bar", false),
       {bar="bar"}))
 end
 

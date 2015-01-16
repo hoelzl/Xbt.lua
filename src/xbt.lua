@@ -80,8 +80,14 @@ local function is_failed (status)
 end
 xbt.is_failed = is_failed
 
--- States can be arbitrary, but they have to contain a blackboard
--- and a table that maps node ids to the corresponding status values.
+-- States can be arbitrary, but they have to contain certain
+-- attributes:
+-- * a `blackboard` for use by the nodes
+-- * `node_status`, a table mapping node ids to the corresponding
+--   status values.
+-- * `improve`, a Boolean flag that indicates whether the nodes
+--   that can improve their values should restart the computation
+--   or return their previous values.
 -- `make_state` takes a table and adds these attributes if necessry.
 -- It can also be called without argument (or with a falsy value)
 -- to generate a new state.
@@ -92,6 +98,7 @@ local function make_state (table)
   if type(table) == "table" then
     util.maybe_add(table, "blackboard")
     util.maybe_add(table, "node_status")
+    util.maybe_add(table, "improve", false)
     return table
   else
     error("Argument to make_state is not a table.")

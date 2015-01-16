@@ -90,9 +90,12 @@ end
 -- table.append = table_append
 util.append = table_append
 
-local function maybe_add (table, attribute)
+local function maybe_add (table, attribute, value)
+  if value == nil then
+    value = {}
+  end
   if not table[attribute] then
-    table[attribute] = {}
+    table[attribute] = value
   end
   return table
 end
