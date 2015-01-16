@@ -5,56 +5,9 @@
 
 -- See the [readme file](README.md) for documentation (well, not yet).
 
-xbt = {}
+local util = require("util")
 
--- A rather inefficient implementation of version 4 UUIDs
--- 
-local function uuid()
-  local digits = {
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-    "a", "b", "c", "d", "e", "f" }
-  local result = {}
-  local function append_digit()
-    local index = math.random(1, #digits)
-    result[#result + 1] = digits[index]
-  end
-  local function append_n_digits(n)
-    for _ = 1, n do
-      append_digit()
-    end
-  end
-  append_n_digits(8)
-  result[#result + 1] = "-"
-  append_n_digits(4)
-  result[#result + 1] = "-"
-  result[#result + 1] = "4"
-  append_n_digits(3)
-  result[#result + 1] = "-"
-  result[#result + 1] = digits[math.random(8,11)]
-  append_n_digits(3)
-  result[#result + 1] = "-"
-  append_n_digits(8)
-  return table.concat(result)
-end
-xbt.uuid = uuid
-
---[[
-local function table_addall(t1, t2)
-  for k,v in pairs(t2) do
-    t1[k] = v
-  end
-  return t1
-end
--- table.addall = table_addall
---]]
-
-local function table_append(t1, t2)
-  for k,v in ipairs(t2) do
-    t1[#t1+1] = v
-  end
-  return t1
-end
--- table.append = table_append
+local xbt = {}
 
 -- A node can either be inactive, running, succeeded or failed.
 -- We define functions that return the correspondig status as
@@ -200,7 +153,7 @@ xbt.is_done = is_done
 local function define_node_type(node_type, arg_names, evaluator)
   xbt[node_type] = function (...)
     local args = {...}
-    local node = {xbt_node_type=node_type, id=uuid()}
+    local node = {xbt_node_type=node_type, id=util.uuid()}
     for i, arg_name in ipairs(arg_names) do
       node[arg_name] = args[i]
     end
@@ -222,7 +175,7 @@ local function descendants (node)
   if node.children then
     for i,child in pairs(node.children) do
       result[#result+1] = child.id
-      table_append(result, descendants(child))
+      util.append(result, descendants(child))
     end
     node.descendants = result
     return result
@@ -366,3 +319,5 @@ end
 define_node_type("choice", {"children"}, tick_choice_node)
 
 print("XBTs are ready to go.")
+
+return xbt
