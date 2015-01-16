@@ -15,8 +15,6 @@ local assert_table = lunatest.assert_table
 local assert_not_table = lunatest.assert_not_table
 local assert_true = lunatest.assert_true
 local assert_nil = lunatest.assert_nil
-local fail = lunatest.fail
-local jit = jit
 
 local t = {}
 
@@ -72,6 +70,11 @@ function t.test_equal_5 ()
   assert_false(util.equal({x="X", y="Y"}, {x="X", y="Y", z="Z"}))
 end
 
+function t.test_equal_6 ()
+  assert_true(util.equal({{1}, {2}, {3}}, {{1}, {2}, {3}}))
+  assert_false(util.equal({{1}, {2}, {3}}, {{1}, {3}, {2}}))
+end
+
 function t.test_addall_1 ()
   local t1 = {}
   local res = util.addall(t1, {x = "XX", y = "YY"})
@@ -98,6 +101,14 @@ function t.test_append ()
   assert_true(util.equal(util.append({1,2,3}, {}), {1,2,3}))
   assert_true(util.equal(util.append({}, {1,2,3}), {1,2,3}))
   assert_true(util.equal(util.append({1,2,3}, {4,5,6}), {1,2,3,4,5,6}))
+end
+
+function t.test_maybe_add ()
+  assert_true(util.equal(util.maybe_add({}, "foo"), {foo={}}))
+  assert_true(util.equal(util.maybe_add({bar="bar"}, "foo"),
+      {foo={}, bar="bar"}))
+  assert_true(util.equal(util.maybe_add({bar="bar"}, "bar"),
+      {bar="bar"}))
 end
 
 return t

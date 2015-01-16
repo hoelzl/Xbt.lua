@@ -43,8 +43,7 @@ local function failed (value, reason)
 end
 xbt.failed = failed
 
--- We sometimes need to check whether a value is a status.
-
+-- Check whether a value is a status.
 local function is_status (val)
   if type(val) == "table" then
     local status, cont = val.status, val.continue
@@ -58,7 +57,7 @@ local function is_status (val)
 end
 xbt.is_status = is_status  
 
--- We define some predicates to check in which state a node
+-- Predicates that check in which state a node
 -- (or rather a status returned by evaluating a node) is.
 
 local function is_inactive (status)
@@ -81,21 +80,18 @@ local function is_failed (status)
 end
 xbt.is_failed = is_failed
 
-local function maybe_add (table, attribute)
-  if not table[attribute] then
-    table[attribute] = {}
-  end
-  return table
-end
 -- States can be arbitrary, but they have to contain a blackboard
 -- and a table that maps node ids to the corresponding status values.
+-- `make_state` takes a table and adds these attributes if necessry.
+-- It can also be called without argument (or with a falsy value)
+-- to generate a new state.
 local function make_state (table)
   if not table then
     table = {}
   end
   if type(table) == "table" then
-    maybe_add(table, "blackboard")
-    maybe_add(table, "node_status")
+    util.maybe_add(table, "blackboard")
+    util.maybe_add(table, "node_status")
     return table
   else
     error("Argument to make_state is not a table.")
@@ -113,16 +109,13 @@ xbt.default_failure_value = -1
 local function tick (node, state)
   state = make_state(state)
   local node_type = node.xbt_node_type
+  assert(node_type, tostring(node) .. " has no xbt_node_type.")
   local e = evaluators[node_type]
+  assert(e, "No evaluator for node type " .. node_type .. ".")
   local result
-  if e then
-    result = e(node, state)
-  else
-    result = failed(xbt.default_failure_value,
-      (node_type and 
-        "No evaluator for node type " .. node_type .. ".") or
-        tostring(node) .. " has no xbt_node_type.")
-  end
+  result = e(node, state)
+  assert(is_status(result),
+    tostring(result) .. " is not a valid status.")
   state.node_status[node.id] = result
   return result
 end
@@ -130,9 +123,17 @@ xbt.tick = tick
 
 local function is_done (node, state)
   local status = state.node_status[node.id]
+  -- This should be unnecessary since we should never store an invalid
+  -- status in the `node_status` table.  But let's check just in case.
+  assert(is_status(result),
+    tostring(result) .. " is not a valid status.")
   if status then
+    -- Since `status` is valid the `continue` attribute correctly represents
+    -- whether we are done or not.
     return not status.continue
   else
+    -- No status for `node` is available, i.e., node has never been
+    -- ticked in `state`. 
     return false
   end
 end
@@ -185,6 +186,14 @@ local function descendants (node)
   end
 end
 xbt.descendants = descendants
+
+-- Set all descendants of a node to their initial state
+local function deactivate_descendants (node)
+  for _, cid in pairs(descendants(node)) do
+    state.node_status[cid] = inactive()
+  end
+end
+xbt.deactivate_descendants = deactivate_descendants
 
 -- We often want to serialize XBTs.  To make this more convenient
 -- we allow functions appearing in leaf nodes to be specified as
@@ -255,7 +264,10 @@ define_node_type("action", {"fun"}, function (node, state)
     return succeeded(fun(state))
   end)
 
+-- The tick function for sequence nodes
 local function tick_seq_node (node, state)
+  -- If `node` has already returned a status indicating that it
+  -- cannot continue in `state` then return the previous result.
   if is_done(node, state) then
     return result(node, state)
   end
@@ -263,21 +275,26 @@ local function tick_seq_node (node, state)
   local status
   for _, child in pairs(node.children) do
     status = tick(child, state)
-    if is_failed(status) or is_running(status) then
+    if is_failed(status) then
+      -- A child node has failed, which means that the sequence
+      -- node is failed as well and cannot continue.  Prepare
+      -- for the next activation before returning the failed
+      -- status.
+      deactivate_descendants(node)
       return status
     end
-    if (not is_succeeded(status)) then
-      error("Evaluation of seq node returned " .. 
-        tostring(status))
+    if is_running(status) then
+      return status
     end
+    assert(is_succeeded(status),
+      "Evaluation of seq-node child returned " ..
+      tostring(status))
     -- TODO: Need more general handling of result values
     sum = sum + status.value
   end
   -- We have ticked all children with a successful result
   -- Reset the children's results to inactive
-  for _, cid in pairs(descendants(node)) do
-    state.node_status[cid] = inactive()
-  end
+  deactivate_descendants(node)
   return succeeded(sum)
 end
 
@@ -286,6 +303,8 @@ end
 define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, state)
+  -- If `node` has already returned a status indicating that it
+  -- cannot continue in `state` then return the previous result.
   if is_done(node, state) then
     return result(node, state)
   end
@@ -294,6 +313,9 @@ local function tick_choice_node (node, state)
   for _, child in pairs(node.children) do
     status = tick(child, state)
     if is_succeeded(status) then
+      -- We have succeeded; reset the children before
+      -- returning
+      deactivate_descendants(node)
       return succeeded(status.value + sum)
     end
     if is_running(status) then
@@ -308,9 +330,7 @@ local function tick_choice_node (node, state)
   end
   -- We have ticked all children with a successful result
   -- Reset the children's results to inactive
-  for _, cid in pairs(descendants(node)) do
-    state.node_status[cid] = inactive()
-  end
+  deactivate_descendants(node)
   return failed(sum, "All children failed")
 end
 

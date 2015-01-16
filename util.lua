@@ -48,10 +48,10 @@ util.size = table_size
 local function table_equal(t1, t2)
   if (type(t1) == "table" and type(t2) == "table") then
     for k,v in pairs(t1) do
-      if t2[k] ~= v then return false end
+      if not table_equal(t2[k], v) then return false end
     end
     for k,v in pairs(t2) do
-      if t1[k] ~= v then return false end
+      if not table_equal(t1[k], v) then return false end
     end
     return true
   else
@@ -89,5 +89,13 @@ local function table_append(t1, t2)
 end
 -- table.append = table_append
 util.append = table_append
+
+local function maybe_add (table, attribute)
+  if not table[attribute] then
+    table[attribute] = {}
+  end
+  return table
+end
+util.maybe_add = maybe_add
 
 return util;
