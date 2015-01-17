@@ -345,16 +345,20 @@ end
 ]]--
 
 --- Set all descendants of a node to result status `inactive`.
--- The desendants and right siblings of an inactive node all
--- have to be inactive as well, so we stop the recursion into
--- children as soon as we encounter an inactive child.
+-- The desendants of an inactive node all have to be inactive
+-- as well, so we don't recurse into inactive children.  However,
+-- since planning or learning nodes might reorder their children
+-- dynamically we cannot be sure that the right siblings of an
+-- inactive child are also inactive; therefore we always process
+-- the complete list of children.
 function xbt.deactivate_descendants (node, path, state)
   for i, child in pairs(node.children) do
     local child_path = path:copy(i)
     local child_result = xbt.result(child, child_path, state)
-    if xbt.is_inactive(child_result) then break end
-    xbt.set_result(child, child_path, state, xbt.inactive())
-    xbt.deactivate_descendants(child, child_path, state)
+    if not xbt.is_inactive(child_result) then
+      xbt.set_result(child, child_path, state, xbt.inactive())
+      xbt.deactivate_descendants(child, child_path, state)
+    end
   end
 end
 
