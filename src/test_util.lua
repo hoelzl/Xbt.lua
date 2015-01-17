@@ -1,10 +1,10 @@
--- test_util.lua
--- Tests for the utility functions.
--- Copyright © 2015, Matthias Hölzl
--- Licensed under the MIT license, see the file LICENSE.md.
+--- Tests for the utility functions.
+-- @copyright 2015, Matthias Hölzl
+-- @author Matthias Hölzl
+-- @license Licensed under the MIT license, see the file LICENSE.md.
 
-util = require("util")
-lunatest = require("lunatest")
+local util = require("util")
+local lunatest = require("lunatest")
 
 local assert_equal = lunatest.assert_equal
 local assert_not_equal = lunatest.assert_not_equal
@@ -127,6 +127,78 @@ function t.test_maybe_add_3 ()
       {foo=false, bar="bar"}))
   assert_true(util.equal(util.maybe_add({bar="bar"}, "bar", false),
       {bar="bar"}))
+end
+
+function t.test_path_new ()
+  local p = util.path.new()
+  assert_true(util.equal(p,{}))
+  assert_true(util.equal(getmetatable(p), util.path.meta))
+end
+
+function t.test_down ()
+  local p = util.path.new()
+  assert_true(util.equal(p,{}))
+  local res = p:down()
+  assert_true(util.equal(res, {1}))
+  assert_true(util.equal(p, {1}))
+  res = p:down()
+  assert_true(util.equal(res, {1, 1}))
+  assert_true(util.equal(p, {1, 1}))
+  p:down()
+  p:down()
+  p:down()
+  assert_true(util.equal(p, {1, 1, 1, 1, 1}))
+end
+
+function t.test_up ()
+  local p = util.path.new()
+  p:down()
+  p:down()
+  p:down()
+  p:down()
+  p:down()
+  assert_true(util.equal(p, {1, 1, 1, 1, 1}))
+  local res = p:up()
+  assert_true(util.equal(res, {1, 1, 1, 1}))
+  assert_true(util.equal(p, {1, 1, 1, 1}))
+  res = p:up()
+  assert_true(util.equal(res, {1, 1, 1}))
+  assert_true(util.equal(p, {1, 1, 1}))
+  p:up()
+  p:up()
+  assert_true(util.equal(p, {1}))
+  res = p:up()
+  assert_true(util.equal(res, {}))
+  assert_true(util.equal(p, {}))
+  assert_error(function () p:up() end)
+end
+
+function t.test_right ()
+  local p = util.path.new()
+  p:down()
+  assert_true(util.equal(p, {1}))
+  local res = p:right()
+  assert_true(util.equal(res, {2}))
+  assert_true(util.equal(p, {2}))
+  res = p:right()
+  assert_true(util.equal(res, {3}))
+  assert_true(util.equal(p, {3}))
+  p:right()
+  assert_true(util.equal(p, {4}))
+  res = p:up()
+  assert_true(util.equal(res, {}))
+  assert_error(function () p:right() end)
+end
+
+function t.test_is_path ()
+  local p = util.path.new()
+  assert_true(util.is_path(p))
+  p:down() 
+  assert_true(util.is_path(p))
+  p:right()
+  assert_true(util.is_path(p))
+  p:up()
+  assert_true(util.is_path(p))
 end
 
 return t
