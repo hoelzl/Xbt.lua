@@ -191,17 +191,24 @@ end
 
 --- Copy a path.
 -- @param p A path pointing to a node in an XBT.
+-- @param extension An extension of the path that will be
+--  added to the copy.  Either a positive integer for a
+--  single step or an array of positive integers for a
+--  relative path.  No extension is added if `extension` is
+--  falsy.  Default is `nil`.
 -- @return A copy of the path `p`.
-function util.path.meta.__index.copy(p, children)
+function util.path.meta.__index.copy(p, extension)
   local res = util.path.new()
   for i,n in ipairs(p) do
     res[i] = n
   end
-  if children then
-    if type(children) == "number" then
-      res[#res+1] = children
+  if extension then
+    if type(extension) == "number" then
+      assert(extension >= 0,
+        "Cannot add negative positions to a path")
+      res[#res+1] = extension
     else
-      util.append(res, children)
+      util.append(res, extension)
     end
   end
   return res

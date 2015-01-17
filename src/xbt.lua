@@ -165,7 +165,8 @@ end
 -- @param node The node that was evaluated.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
--- @result The result of the evaluation of `node`.  
+-- @param result The new evaluation result for `node`.
+-- @return The new evaluation result for `node`, i.e., `result`.  
 function xbt.set_result(node, path, state, result)
   assert(xbt.is_result(result),
     tostring(result) .. " is not a valid XBT result.")
@@ -177,7 +178,7 @@ end
 -- @param node The node to evaluate.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
--- @result The result of the previous evaluation of `node`.  
+-- @return The result of the previous evaluation of `node`.  
 --  If node was not previously evaluated, an `inactive` result
 --  is returned.
 function xbt.result(node, path, state)
@@ -258,8 +259,8 @@ end
 -- the computation to progress (even if the node could still be
 -- improved.
 -- @param node The node to be ticked.
--- @param state The current state of the evaluation.
 -- @param path The path to the position of `node` in the XBT.
+-- @param state The current state of the evaluation.
 -- @return `true` if the node is either `succeeded` or `failed`,
 --  `false` otherwise.
 function xbt.is_done (node, path, state)
@@ -270,8 +271,8 @@ end
 --- Check whether a node can be ticked again, either to finish
 -- an incomplete computation or to improve a previous result.
 -- @param node The node to be ticked.
--- @param state The current state of the evaluation.
 -- @param path The path to the position of `node` in the XBT.
+-- @param state The current state of the evaluation.
 -- @return A Boolean indicating whether ticking the node may
 --  result in a different result than the one previously
 --  obtained.
