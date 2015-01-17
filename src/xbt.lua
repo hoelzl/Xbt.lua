@@ -244,6 +244,8 @@ function xbt.tick (node, path, state)
   assert(util.is_path(p), tostring(path) .. " is not a path.")
   local node_type = node.xbt_node_type
   assert(node_type, tostring(node) .. " has no xbt_node_type.")
+  util.debug_print("xbt.tick: node " .. node.id ..
+    " of type " .. node_type .. "\t path=" .. tostring(path))
   local e = xbt.evaluators[node_type]
   assert(e, "No evaluator for node type " .. node_type .. ".")
   local result

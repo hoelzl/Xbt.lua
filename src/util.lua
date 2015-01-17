@@ -216,4 +216,15 @@ end
 function util.is_path (p)
   return getmetatable(p) == util.path.meta
 end
+
+--- A flag indicating whether debug output should be shown.
+util.debug = false
+
+--- Print arguments when debugging is enabled.
+function util.debug_print(...)
+  if util.debug then
+    print(...)
+  end
+end
+
 return util;
