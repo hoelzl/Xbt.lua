@@ -129,8 +129,36 @@ end
 -- operating on paths in the XBT.
 util.path = {}
 
+--- Generate a new path starting at the root of the XBT.
+-- @return A new path.
+function util.path.new (...)
+  local p = {...}
+  setmetatable(p, util.path.meta)
+  return p
+end
+
 --- The metatable for path objects.
 util.path.meta = {__index={}}
+
+--- Paths are compared using value equality.
+function util.path.meta.__eq (p1, p2)
+  if #p1 ~= #p2 then return false end
+  for i,pos in ipairs(p1) do
+    if p2[i] ~= pos then return false end
+  end
+  return true
+end
+
+--- Convert a path to string
+function util.path.meta.__tostring (p)
+  local res, sep = "[", ""
+  for _,pos in ipairs(p) do
+    res = res .. sep .. pos
+    sep = ","
+  end
+  res = res .. "]"
+  return res 
+end
 
 --- Descend one level deeper into the tree.
 -- @param p A path pointing to a node `n` in an XBT.
@@ -161,12 +189,22 @@ function util.path.meta.__index.up (p)
   return p
 end
 
---- Generate a new path starting at the root of the XBT.
--- @return A new path.
-function util.path.new ()
-  local p = {}
-  setmetatable(p, util.path.meta)
-  return p
+--- Copy a path.
+-- @param p A path pointing to a node in an XBT.
+-- @return A copy of the path `p`.
+function util.path.meta.__index.copy(p, children)
+  local res = util.path.new()
+  for i,n in ipairs(p) do
+    res[i] = n
+  end
+  if children then
+    if type(children) == "number" then
+      res[#res+1] = children
+    else
+      util.append(res, children)
+    end
+  end
+  return res
 end
 
 --- Check whether a value represents a path.
