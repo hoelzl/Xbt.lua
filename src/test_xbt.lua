@@ -1,7 +1,7 @@
 --- Tests for Extended Behavior Trees.
 -- @copyright 2015, Matthias Hölzl
 -- @author Matthias Hölzl
--- @license Licensed under the MIT license, see the file LICENSE.md.
+-- @license MIT, see the file LICENSE.md.
 
 local util = require("util")
 local xbt = require("xbt")
@@ -111,4 +111,15 @@ function t.test_can_continue ()
   assert_true(xbt.can_continue(node, path, state))
 end
 
+-- Define some actions and action nodes for later tests.
+
+xbt.define_function_name("print-1", function (state)
+  print("print-1", state)
+  return 1
+end)
+xbt.define_function_name("print_and_succeed", function (state)
+  print(state)
+  return xbt.succeeded("Yeah!")
+end)
+--]]
 return t

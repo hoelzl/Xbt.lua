@@ -1,7 +1,7 @@
---- Extended Behavior Trees in Lua.
+--- Extended Behavior Trees in Lua(JIT).
 -- @copyright © 2015, Matthias Hölzl
 -- @author Matthias Hölzl
--- @license Licensed under the MIT license, see the file LICENSE.md.
+-- @license MIT, see the file LICENSE.md.
 
 -- See the [readme file](README.md) for documentation (well, not yet).
 
@@ -126,6 +126,28 @@ function xbt.is_failed (result)
   return result.status == "failed"
 end
 
+
+--- Check whether a node has already reached a state that allows
+-- the computation to progress (even if the node could still be
+-- improved.
+-- @param result The result to be checked.
+-- @return `true` if the result's status is either `succeeded` or `failed`,
+--  `false` otherwise.
+function xbt.is_done (result)
+  return xbt.is_succeeded(result) or xbt.is_failed(result)
+end
+
+--- Check whether a node can be ticked again, either to finish
+-- an incomplete computation or to improve a previous result.
+-- @param result The result to be checked.
+-- @return A Boolean indicating whether ticking the node may
+--  result in a different result than the one previously
+--  obtained.
+function xbt.can_continue (result)
+  return result.continue
+end
+
+
 --- Make a new state, or update a table to become a state.
 -- Any table can be used as state (there is no need to have a 
 -- particular metatable), but it has to contain certain
@@ -184,7 +206,8 @@ end
 function xbt.result(node, path, state)
   local res = state.node_results[tostring(path)]
   if not res then
-    xbt.set_result(node, path, state, xbt.inactive())
+    res = xbt.inactive()
+    xbt.set_result(node, path, state, res)
   end
   assert(xbt.is_result(res),
     tostring(res) .. " is not a valid XBT result.")
@@ -242,43 +265,20 @@ xbt.default_failure_cost = -1
 function xbt.tick (node, path, state)
   state = xbt.make_state(state)
   path = path or util.path.new()
-  assert(util.is_path(p), tostring(path) .. " is not a path.")
+  assert(util.is_path(path), tostring(path) .. " is not a path.")
   local node_type = node.xbt_node_type
   assert(node_type, tostring(node) .. " has no xbt_node_type.")
   util.debug_print("xbt.tick: node " .. node.id ..
     " of type " .. node_type .. "\t path=" .. tostring(path))
+  local result = xbt.result(node, path, state)
+  local improving = xbt.can_continue(result) and state.improve
+  if xbt.is_done(result) and not improving then return result end
   local e = xbt.evaluators[node_type]
   assert(e, "No evaluator for node type " .. node_type .. ".")
   local result
   result = e(node, path, state)
   xbt.set_result(node,path,state,result)
   return result
-end
-
---- Check whether a node has already reached a state that allows
--- the computation to progress (even if the node could still be
--- improved.
--- @param node The node to be ticked.
--- @param path The path to the position of `node` in the XBT.
--- @param state The current state of the evaluation.
--- @return `true` if the node is either `succeeded` or `failed`,
---  `false` otherwise.
-function xbt.is_done (node, path, state)
-  local result = xbt.result(node,path,state)
-  return xbt.is_succeeded(result) or xbt.is_failed(result)
-end
-
---- Check whether a node can be ticked again, either to finish
--- an incomplete computation or to improve a previous result.
--- @param node The node to be ticked.
--- @param path The path to the position of `node` in the XBT.
--- @param state The current state of the evaluation.
--- @return A Boolean indicating whether ticking the node may
---  result in a different result than the one previously
---  obtained.
-function xbt.can_continue (node, path, state)
-  local result = xbt.result(node, path, state)
-  return result.continue
 end
 
 --- Define an evaluation function and a constructor for `node_type`.
@@ -355,6 +355,7 @@ end
 -- inactive child are also inactive; therefore we always process
 -- the complete list of children.
 function xbt.deactivate_descendants (node, path, state)
+  if not node.children then return end
   for i, child in pairs(node.children) do
     local child_path = path:copy(i)
     local child_result = xbt.result(child, child_path, state)
@@ -365,32 +366,32 @@ function xbt.deactivate_descendants (node, path, state)
   end
 end
 
+--- A table mapping function names to functions.
+-- Function and action nodes use this table to look up their
+-- `fun` attributes.
+xbt.functions = {};
+
+--- Define a name for a function or action.
 -- We often want to serialize XBTs.  To make this more convenient
 -- we allow functions appearing in leaf nodes to be specified as
 -- strings, in which case we look up the function value in
 -- `xbt.functions`.
-xbt.functions = {};
-
+-- @param name  The name with which the function can be
+--  accessed in `fun` nodes.
+-- @param fun The function.
 function xbt.define_function_name (name, fun)
   if type(name) ~= "string" then
-    error("Action name must be a string.")
+    error("Function or action name must be a string.")
   end
   xbt.functions[name] = fun
 end
 
--- For testing purposes.
----[[
-xbt.define_function_name("print", print)
-xbt.define_function_name("print1", function (state)
-  print(state)
-  return 1
-end)
-xbt.define_function_name("print_and_succeed", function (state)
-  print(state)
-  return xbt.succeeded("Yeah!")
-end)
---]]
-
+--- Look up a function or action given its name.
+-- @param f A function or the name of a function defined using
+--  `define_function_name`.
+-- @return If `f` is a string, use it as key in the `xbt.functions`
+--  table and return the value found.  Throw an error if no
+--  definition for `f` exists.  Otherwise just return `f`.
 function xbt.lookup_function (f)
   if type(f) == "string" then
     local result = xbt.functions[f]
@@ -410,58 +411,70 @@ end
 -- unique ID.
 
 -- Function ("fun") nodes encapsulate a function.
--- The function has to return a valid XBT result.
-
-xbt.define_node_type("fun", {"fun"}, function (node, state)
-  local fun = xbt.lookup_function(node.fun)
-  local result = fun(state)
-  if xbt.is_result(result) then
+-- The function is called with the node, the path and a state
+-- as argument sand has to return a valid XBT result.  The node
+-- and path are mainly useful if the function has to store local
+-- information in the state.  If the information is for all
+-- occurences of the function then `node` can be used as key; if
+-- it is just for this occurrence of the function then
+-- `tostring(path)` can be used.  Note that `path` itself is not
+-- a useful key, since there is no guarantee that different
+-- invocations of the function at the same position will receive
+-- identical paths.  The paths are guaranteed to be `==`, however.
+xbt.define_node_type("fun", {"fun"}, function (node, path, state)
+    local fun = xbt.lookup_function(node.fun)
+    local result = fun(node, path, state)
+    assert(xbt.is_result(result),
+      "Function didn't return a valid result.")
     return result
-  else
-    return xbt.failed(xbt.default_failure_cost,
-      "Function didn't return a valid result")
-  end
-end)
+  end)
 
 -- Action nodes are similar to functions, but they wrap the return
--- value of the function into a XBT result.
-xbt.define_node_type("action", {"fun"}, function (node, state)
+-- value of the function into a XBT result that indicates that the 
+-- function has succeeded and contains the return value of the
+-- function as value.  The cost of the call has
+-- to be provided when the node is created.
+xbt.define_node_type("action", {"fun", "cost"}, function (node, path, state)
   local fun = xbt.lookup_function(node.fun)
-  return xbt.succeeded(fun(state))
+  return xbt.succeeded(node.cost, fun(node, path, state))
 end)
+
+local function deactivate_seq_or_choice (node, path, state)
+  xbt.deactivate_descendants(node, path, state)
+  local cost = state[path]
+  state[path] = nil
+  return cost
+end
 
 -- The tick function for sequence nodes
 local function tick_seq_node (node, path, state)
-  -- If `node` has already returned a result indicating that it
-  -- cannot continue in `state` then return the previous result.
-  if xbt.is_done(node, path, state) then
-    return xbt.result(node, state)
-  end
-  local sum = 0
-  local result
-  for _, child in pairs(node.children) do
-    result = xbt.tick(child, path, state)
+  for pos, child in pairs(node.children) do
+    local p = path:copy(pos)
+    local result = xbt.tick(child, p, state)
+    -- Store the total accumulated cost/value in state.path
+    local cv = state[path] or {0,0} -- cost and value
+    state[path] = {cv[1] + result.cost, cv[2] + (result.value or 0)}
     if xbt.is_failed(result) then
       -- A child node has failed, which means that the sequence
       -- node is failed as well and cannot continue.  Prepare
       -- for the next activation before returning the failed
       -- result.
-      xbt.deactivate_descendants(node, path, state)
-      return result
+      cv = deactivate_seq_or_choice(node, path, state)
+      return xbt.failed(cv[1], "A child node failed")
     end
     if xbt.is_running(result) then
       return result
     end
     assert(xbt.is_succeeded(result),
-      "Evaluation of seq-node child returned " ..
-      tostring(result))
-    -- TODO: Need more general handling of result values
-    sum = sum + result.value
+      "Evaluation of seq-node child returned " .. tostring(result))
+    -- Prevent the cost and value from being counted in future ticks.
+    result.cost = 0
+    result.value = 0
   end
   -- We have ticked all children with a successful result
   -- Reset the children's results to inactive
-  xbt.deactivate_descendants(node, path, state)
-  return xbt.succeeded(sum)
+  local cv = deactivate_seq_or_choice(node, path, state)
+  return xbt.succeeded(cv[1], cv[2])
 end
 
 -- Sequence ("seq") nodes evaluate their children sequentially
@@ -469,33 +482,27 @@ end
 xbt.define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, path, state)
-  -- If `node` has already returned a result indicating that it
-  -- cannot continue in `state` then return the previous result.
-  if xbt.is_done(node, path, state) then
-    return xbt.result(node, state)
-  end
-  local sum = 0
-  local result
-  for _, child in pairs(node.children) do
-    result = xbt.tick(child, path, state)
+  for pos, child in pairs(node.children) do
+    local p = path:copy(pos)
+    local result = xbt.tick(child, p, state)
+    -- Store the total accumulated cost in state.path
+    state[path] = (state[path] or 0) + result.cost
     if xbt.is_succeeded(result) then
       -- We have succeeded; reset the children before
       -- returning
-      xbt.deactivate_descendants(node, path, state)
-      return xbt.succeeded(result.value + sum)
+      local cost = deactivate_seq_or_choice(node, path, state)
+      return xbt.succeeded(cost, result.value)
     end
     if xbt.is_running(result) then
       return result
     end
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
-    -- TODO: Need more general handling of result values
-    sum = sum + result.value
+    -- Prevent the cost from being counted in future ticks.
+    result.cost = 0
   end
-  -- We have ticked all children with a successful result
-  -- Reset the children's results to inactive
-  xbt.deactivate_descendants(node, path, state)
-  return xbt.failed(sum, "All children failed")
+  local cost = deactivate_seq_or_choice(node, path, state)
+  return xbt.failed(cost, "All children failed")
 end
 
 -- Choice nodes evaluate their children sequentially and
