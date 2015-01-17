@@ -19,34 +19,34 @@ local assert_nil = lunatest.assert_nil
 
 local t = {}
 
-function t.test_is_status_1 ()
-  assert_true(xbt.is_status{status="inactive", continue=true, cost=0})
-  assert_false(xbt.is_status{status="inactive", continue=true, cost=true})
-  assert_false(xbt.is_status{status="inactive", continue=false, cost=0})
-  assert_true(xbt.is_status{status="running", continue=true, cost=0})
-  assert_false(xbt.is_status{status="running", continue=false, cost=0})
-  assert_true(xbt.is_status{status="succeeded", continue=true, cost=0})
-  assert_true(xbt.is_status{status="succeeded", continue=false, cost=0})
-  assert_true(xbt.is_status{status="failed", continue=false, cost=0})
-  assert_false(xbt.is_status{status="failed", continue=true, cost=0})
-  assert_false(xbt.is_status{status="foo", continue=true, cost=0})
-  assert_false(xbt.is_status{status="foo", continue=false, cost=0})
-  assert_false(xbt.is_status("succeeded"))
+function t.test_is_result_1 ()
+  assert_true(xbt.is_result{status="inactive", continue=true, cost=0})
+  assert_false(xbt.is_result{status="inactive", continue=true, cost=true})
+  assert_false(xbt.is_result{status="inactive", continue=false, cost=0})
+  assert_true(xbt.is_result{status="running", continue=true, cost=0})
+  assert_false(xbt.is_result{status="running", continue=false, cost=0})
+  assert_true(xbt.is_result{status="succeeded", continue=true, cost=0})
+  assert_true(xbt.is_result{status="succeeded", continue=false, cost=0})
+  assert_true(xbt.is_result{status="failed", continue=false, cost=0})
+  assert_false(xbt.is_result{status="failed", continue=true, cost=0})
+  assert_false(xbt.is_result{status="foo", continue=true, cost=0})
+  assert_false(xbt.is_result{status="foo", continue=false, cost=0})
+  assert_false(xbt.is_result("succeeded"))
 end
 
-function t.test_is_status_2 ()
-  assert_true(xbt.is_status(xbt.inactive()))
-  assert_true(xbt.is_status(xbt.running()))
-  assert_true(xbt.is_status(xbt.succeeded()))
-  assert_true(xbt.is_status(xbt.failed()))
+function t.test_is_result_2 ()
+  assert_true(xbt.is_result(xbt.inactive()))
+  assert_true(xbt.is_result(xbt.running()))
+  assert_true(xbt.is_result(xbt.succeeded()))
+  assert_true(xbt.is_result(xbt.failed()))
 end
   
-function t.test_is_status_3 ()
-  assert_false(xbt.is_status(xbt.inactive(false)))
-  assert_false(xbt.is_status(xbt.inactive({x = 1})))
-  assert_false(xbt.is_status(xbt.running(true)))
-  assert_false(xbt.is_status(xbt.succeeded("foo")))
-  assert_false(xbt.is_status(xbt.failed({})))
+function t.test_is_result_3 ()
+  assert_false(xbt.is_result(xbt.inactive(false)))
+  assert_false(xbt.is_result(xbt.inactive({x = 1})))
+  assert_false(xbt.is_result(xbt.running(true)))
+  assert_false(xbt.is_result(xbt.succeeded("foo")))
+  assert_false(xbt.is_result(xbt.failed({})))
 end
 
 function t.test_is_inactive ()
@@ -71,25 +71,25 @@ end
 
 function t.test_make_state_1 ()
   assert_true(util.equal(xbt.make_state(),
-      {blackboard={}, node_status={}, improve=false}))
+      {blackboard={}, node_results={}, improve=false}))
 end
 
 function t.test_make_state_2 ()
   assert_true(util.equal(xbt.make_state({blackboard={x=1}}),
-    {blackboard={x=1}, node_status={}, improve=false}))
+    {blackboard={x=1}, node_results={}, improve=false}))
 end
 
 function t.test_is_done ()
   local node = {id="node-1"}
   local state = xbt.make_state()
   local path = util.path.new()
-  state.node_status[path] = xbt.succeeded()
+  state.node_results[path] = xbt.succeeded()
   assert_true(xbt.is_done(node, state, path))
-  state.node_status[path] = xbt.failed()
+  state.node_results[path] = xbt.failed()
   assert_true(xbt.is_done(node, state, path))
-  state.node_status[path] = xbt.running()
+  state.node_results[path] = xbt.running()
   assert_false(xbt.is_done(node, state, path))
-  state.node_status[path] = xbt.inactive()
+  state.node_results[path] = xbt.inactive()
   assert_false(xbt.is_done(node, state, path))
 end
 
@@ -97,15 +97,15 @@ function t.test_can_continue ()
   local node = {id="node-1"}
   local state = xbt.make_state()
   local path = util.path.new()
-  state.node_status[path] = xbt.succeeded()
+  state.node_results[path] = xbt.succeeded()
   assert_false(xbt.can_continue(node, state, path))
-  state.node_status[path].continue = true
+  state.node_results[path].continue = true
   -- assert_true(xbt.can_continue(node, state, path))
-  state.node_status[path] = xbt.failed()
+  state.node_results[path] = xbt.failed()
   assert_false(xbt.can_continue(node, state, path))
-  state.node_status[path] = xbt.running()
+  state.node_results[path] = xbt.running()
   assert_true(xbt.can_continue(node, state, path))
-  state.node_status[path] = xbt.inactive()
+  state.node_results[path] = xbt.inactive()
   assert_true(xbt.can_continue(node, state, path))
 end
 
