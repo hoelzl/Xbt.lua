@@ -7,7 +7,7 @@
 
 local util = require("util")
 local xbt = require("xbt")
-local nodes = require("test_nodes")
+local nodes = require("example.nodes")
 
 print("util:  ", util)
 print("xbt:   ", xbt)

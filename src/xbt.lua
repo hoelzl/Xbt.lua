@@ -261,7 +261,7 @@ xbt.default_failure_cost = -1
 function xbt.tick (node, path, state)
   state = xbt.make_state(state)
   path = path or util.path.new()
-  assert(util.is_path(path), tostring(path) .. " is not a path.")
+  assert(util.path.is_path(path), tostring(path) .. " is not a path.")
   local node_type = node.xbt_node_type
   assert(node_type, tostring(node) .. " has no xbt_node_type.")
   util.debug_print("xbt.tick: node " .. node.id ..
@@ -442,14 +442,15 @@ end
 xbt.define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, path, state)
+  local cost = 0
   for pos, child in pairs(node.children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
     -- Store the total accumulated cost in state.path
-    state[path] = (state[path] or 0) + result.cost
+    cost = cost + result.cost
     if xbt.is_succeeded(result) then
       -- We have succeeded; reset the children before returning
-      local cost = deactivate_seq_or_choice(node, path, state)
+      xbt.deactivate_descendants(node, path, state)
       return xbt.succeeded(cost, result.value)
     end
     if xbt.is_running(result) then
@@ -457,10 +458,8 @@ local function tick_choice_node (node, path, state)
     end
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
-    -- Prevent the cost from being counted in future ticks.
-    result.cost = 0
   end
-  local cost = deactivate_seq_or_choice(node, path, state)
+  xbt.deactivate_descendants(node, path, state)
   return xbt.failed(cost, "All children failed")
 end
 
