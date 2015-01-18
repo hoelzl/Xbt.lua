@@ -35,8 +35,8 @@ function util.uuid ()
   return table.concat(result)
 end
 
---- Compute the size of a table.  This includes all attributes
--- and array members.
+--- Compute the size of a table.
+-- This includes all attributes and array members.
 -- @param t A table
 -- @return The number of attributes of `t`.
 function util.size(t)
@@ -48,14 +48,14 @@ function util.size(t)
 end
 
 --- Value equality for tables.
--- Check whether two tables are equal as values.  Recursively
--- descends into attributes.  All other values are compared
--- using `==`.  Ignoeres metatables.
+-- Check whether two tables are equal as values.  Recursively descends
+-- into attributes.  All other values are compared using `==`.
+-- Ignoeres metatables.
 -- @param t1 A table.
 -- @param t2 A table.
 -- @return `true` if `t1` and `t2` have the same value, `false`
---  otherwise.  Calls itself recursively and may therefore
---  fail for cyclic data structures.
+--  otherwise.  Calls itself recursively and may therefore fail for
+--  cyclic data structures.
 function util.equal(t1, t2)
   if (type(t1) == "table" and type(t2) == "table") then
     for k,v in pairs(t1) do
@@ -85,11 +85,11 @@ function util.keys(t)
 end
 
 --- Conjoin the members of one table to another.
--- @param t1 The table to which the new values are added.
---  Modified destructively.
+-- @param t1 The table to which the new values are added.  Modified
+--  destructively.
 -- @param t2 The table containing the new keys
--- @return `t1`, modified with the key/value bindings of `t2`
---  Keys occurring in both tables get the value of `t2`.
+-- @return `t1`, modified with the key/value bindings of `t2` Keys
+--  occurring in both tables get the value of `t2`.
 function util.addall(t1, t2)
   for k,v in pairs(t2) do
     t1[k] = v
@@ -112,9 +112,8 @@ end
 -- @param table The table to which the attribute is added
 -- @param attribute The name of the attribute as string
 -- @param value The value of the attribute.  Defaults to `{}`
--- @return `table`, with the `attribute`/`value` pair added if
---  no value for `attribute` was present, the unmodified table
---  otherwise.
+-- @return `table`, with the `attribute`/`value` pair added if no
+--  value for `attribute` was present, the unmodified table otherwise.
 function util.maybe_add (table, attribute, value)
   if value == nil then
     value = {}
@@ -125,11 +124,15 @@ function util.maybe_add (table, attribute, value)
   return table
 end
 
---- The submodule `path` contains all operations for
+--- Submodule for paths.
+-- The submodule `path` contains all operations for
 -- operating on paths in the XBT.
 util.path = {}
 
 --- Generate a new path starting at the root of the XBT.
+-- @param ... Any number of positive integers can be passed as
+--  arguments to the function and will be used as the value for the
+--  result path.
 -- @return A new path.
 function util.path.new (...)
   local p = {...}
@@ -141,6 +144,10 @@ end
 util.path.meta = {__index={}}
 
 --- Paths are compared using value equality.
+-- @param p1 A path.
+-- @param p2 Another path.
+-- @return `true` if `p1` and `p2` point to the same location in the
+--  tree, false otherwise.
 function util.path.meta.__eq (p1, p2)
   if #p1 ~= #p2 then return false end
   for i,pos in ipairs(p1) do
@@ -150,6 +157,8 @@ function util.path.meta.__eq (p1, p2)
 end
 
 --- Convert a path to string
+-- @param p A path.
+-- @return A string representation of `p`
 function util.path.meta.__tostring (p)
   local res, sep = "[", ""
   for _,pos in ipairs(p) do
@@ -162,8 +171,8 @@ end
 
 --- Descend one level deeper into the tree.
 -- @param p A path pointing to a node `n` in an XBT.
--- @return The value of `p` modified to point to the first
---  child of `n`.
+-- @return The value of `p` modified to point to the first child of
+--  `n`.
 function util.path.meta.__index.down (p)
   p[#p+1] = 1
   return p
@@ -171,8 +180,8 @@ end
 
 --- Move to the next sibling of the current node.
 -- @param p A path pointing to a node `n` in an XBT.
--- @return The value of `p` modified to point to the right
---  sibling of `n`.
+-- @return The value of `p` modified to point to the right sibling of
+--  `n`.
 function util.path.meta.__index.right (p)
   assert(#p > 0, "The root node has no right sibling.")
   p[#p] = p[#p] + 1
@@ -181,8 +190,7 @@ end
 
 --- Move up one level in a tree.
 -- @param p A path pointing to a non-root node `n` of an XBT.
--- @return The value of `p` modified to point to the parent
---  of `n`.
+-- @return The value of `p` modified to point to the parent of `n`.
 function util.path.meta.__index.up (p)
   assert(#p > 0, "Cannot move above the root of a tree.")
   p[#p] = nil
@@ -191,11 +199,10 @@ end
 
 --- Copy a path.
 -- @param p A path pointing to a node in an XBT.
--- @param extension An extension of the path that will be
---  added to the copy.  Either a positive integer for a
---  single step or an array of positive integers for a
---  relative path.  No extension is added if `extension` is
---  falsy.  Default is `nil`.
+-- @param extension An extension of the path that will be added to the
+--  copy.  Either a positive integer for a single step or an array of
+--  positive integers for a relative path.  No extension is added if
+--  `extension` is falsy.  Default is `nil`.
 -- @return A copy of the path `p`.
 function util.path.meta.__index.copy(p, extension)
   local res = util.path.new()
@@ -216,10 +223,9 @@ end
 
 --- Check whether a value represents a path.
 -- @param p The value to be tested.
--- @return A Boolean indicating whether `p` is a path.  This
---  decision is made by checking whether the metatable of `p`
---  is the one defined for paths, so path-like objects are not
---  accepted.
+-- @return A Boolean indicating whether `p` is a path.  This decision
+--  is made by checking whether the metatable of `p` is the one
+--  defined for paths, so path-like objects are not accepted.
 function util.is_path (p)
   return getmetatable(p) == util.path.meta
 end
@@ -228,6 +234,7 @@ end
 util.debug = false
 
 --- Print arguments when debugging is enabled.
+-- @param ... Any number of arguments will be passed on to `print`.
 function util.debug_print(...)
   if util.debug then
     print(...)
