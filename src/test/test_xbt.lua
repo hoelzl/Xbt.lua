@@ -3,8 +3,8 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
-local util = require("../util")
-local xbt = require("../xbt")
+local util = require("util")
+local xbt = require("xbt")
 local lunatest = require("lunatest")
 
 local assert_equal = lunatest.assert_equal

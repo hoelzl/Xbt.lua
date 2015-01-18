@@ -3,7 +3,7 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
-local util = require("../util")
+local util = require("util")
 local lunatest = require("lunatest")
 
 local assert_equal = lunatest.assert_equal
@@ -196,13 +196,13 @@ end
 
 function t.test_is_path ()
   local p = util.path.new()
-  assert_true(util.is_path(p))
+  assert_true(util.path.is_path(p))
   p:down() 
-  assert_true(util.is_path(p))
+  assert_true(util.path.is_path(p))
   p:right()
-  assert_true(util.is_path(p))
+  assert_true(util.path.is_path(p))
   p:up()
-  assert_true(util.is_path(p))
+  assert_true(util.path.is_path(p))
 end
 
 function t.test_path_copy_1 ()
