@@ -3,8 +3,8 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
-local util = require("util")
-local xbt = require("xbt")
+local util = require("../util")
+local xbt = require("../xbt")
 local lunatest = require("lunatest")
 
 local assert_equal = lunatest.assert_equal
@@ -80,35 +80,29 @@ function t.test_make_state_2 ()
 end
 
 function t.test_is_done ()
-  local node = {id="node-1"}
-  local state = xbt.make_state()
-  local path = util.path.new()
-  xbt.set_result(node, path, state, xbt.succeeded())
-  assert_true(xbt.is_done(node, path, state))
-  xbt.result(node,path,state).continue = true
-  assert_true(xbt.is_done(node, path, state))
-  xbt.set_result(node, path, state, xbt.failed())
-  assert_true(xbt.is_done(node, path, state))
-  xbt.set_result(node, path, state, xbt.running())
-  assert_false(xbt.is_done(node, path, state))
-  xbt.set_result(node, path, state, xbt.inactive())
-  assert_false(xbt.is_done(node, path, state))
+  local result = xbt.succeeded()
+  assert_true(xbt.is_done(result))
+  result.continue = true
+  assert_true(xbt.is_done(result))
+  result = xbt.failed()
+  assert_true(xbt.is_done(result))
+  result = xbt.running()
+  assert_false(xbt.is_done(result))
+  result = xbt.inactive()
+  assert_false(xbt.is_done(result))
 end
 
 function t.test_can_continue ()
-  local node = {id="node-1"}
-  local state = xbt.make_state()
-  local path = util.path.new()
-  xbt.set_result(node, path, state, xbt.succeeded())
-  assert_false(xbt.can_continue(node, path, state))
-  xbt.result(node,path,state).continue = true
-  assert_true(xbt.can_continue(node, path, state))
-  xbt.set_result(node, path, state, xbt.failed())
-  assert_false(xbt.can_continue(node, path, state))
-  xbt.set_result(node, path, state, xbt.running())
-  assert_true(xbt.can_continue(node, path, state))
-  xbt.set_result(node, path, state, xbt.inactive())
-  assert_true(xbt.can_continue(node, path, state))
+  local result = xbt.succeeded()
+  assert_false(xbt.can_continue(result))
+  result.continue = true
+  assert_true(xbt.can_continue(result))
+  result = xbt.failed()
+  assert_false(xbt.can_continue(result))
+  result = xbt.running()
+  assert_true(xbt.can_continue(result))
+  result = xbt.inactive()
+  assert_true(xbt.can_continue(result))
 end
 
 -- Define some actions and action nodes for later tests.

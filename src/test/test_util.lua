@@ -3,7 +3,7 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
-local util = require("util")
+local util = require("../util")
 local lunatest = require("lunatest")
 
 local assert_equal = lunatest.assert_equal
