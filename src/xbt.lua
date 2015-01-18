@@ -158,6 +158,9 @@ end
 --
 -- * `node_results`, a table mapping paths to the corresponding result
 --   values.
+-- 
+-- * `local_data`, a table for storing local data that node want to
+--   persist between ticks.
 --
 -- * `improve`, a Boolean flag that indicates whether nodes that can
 --   improve their values should restart the computation or return
@@ -177,6 +180,7 @@ function xbt.make_state (table)
   if type(table) == "table" then
     util.maybe_add(table, "blackboard")
     util.maybe_add(table, "node_results")
+    util.maybe_add(table, "local_data")
     util.maybe_add(table, "improve", false)
     return table
   else
@@ -184,7 +188,34 @@ function xbt.make_state (table)
   end
 end
 
+--- Store local data for a node instance.
+-- Save `data` in state so that it persists during ticks.  It can be
+-- read with `local_data` and is deleted by `deactivate_node`.
+-- @param node The node for which we are storing data.
+-- @param path A path identifying the instance of the node.
+-- @param state The current state of the evaluation.
+-- @param data The data we want to persist.  Any old data stored for
+--  this instance is overwritten.
+function xbt.set_local_data (node, path, state, data)
+  state.local_data[tostring(path)] = data
+end
+
+--- Retreive local data for a node instance.
+-- Retreive data that was previously stored using `set_local_data` or
+-- return the default value if no previously stored value is
+-- available.
+-- @param node The node for which we are retreiving data.
+-- @param path A path identifying the instance of the node.
+-- @param state The current state of the evaluation.
+-- @param default The value returned if no data is available.
+-- @return The previously stored data or `default`.
+function xbt.local_data (node, path, state, default)
+  return state.local_data[tostring(path)] or default
+end
+
 --- Set the evaluation result for a node.
+-- This is mostly useful for the `tick` function and for evaluators
+-- that can improve their results.
 -- @param node The node that was evaluated.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
@@ -198,6 +229,8 @@ function xbt.set_result(node, path, state, result)
 end
 
 --- Get the previous evaluation result for a node.
+-- This is mostly useful for the `tick` function and for evaluators
+-- that can improve previous results.
 -- @param node The node to evaluate.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
@@ -266,13 +299,12 @@ function xbt.tick (node, path, state)
   assert(node_type, tostring(node) .. " has no xbt_node_type.")
   util.debug_print("xbt.tick: node " .. node.id ..
     " of type " .. node_type .. "\t path=" .. tostring(path))
-  local result = xbt.result(node, path, state)
-  local improving = xbt.can_continue(result) and state.improve
-  if xbt.is_done(result) and not improving then return result end
+  local prev_result = xbt.result(node, path, state)
+  local improving = xbt.can_continue(prev_result) and state.improve
+  if xbt.is_done(prev_result) and not improving then return prev_result end
   local e = xbt.evaluators[node_type]
   assert(e, "No evaluator for node type " .. node_type .. ".")
-  local result
-  result = e(node, path, state)
+  local result = e(node, path, state)
   xbt.set_result(node,path,state,result)
   return result
 end
@@ -328,6 +360,18 @@ function xbt.deactivate_descendants (node, path, state)
     end
   end
 end
+
+--- Deactivate a node
+-- Set all descendants of a node to status `inactive` and clear any
+-- data the node might have stored under its path.
+-- @param node The node whose descendants we are deactivating.
+-- @param path The path to `node` in the XBT.
+-- @param state The state of the XBT's evaluation.
+function xbt.deactivate_node (node, path, state)
+  xbt.deactivate_descendants(node, path, state)
+  xbt.set_local_data(node, path, state, nil)
+end
+
 
 --- A table mapping function names to functions.
 -- Function and action nodes use this table to look up their `fun`
@@ -400,41 +444,34 @@ xbt.define_node_type("action", {"fun", "cost"}, function (node, path, state)
   return xbt.succeeded(node.cost, fun(node, path, state))
 end)
 
-local function deactivate_seq_or_choice (node, path, state)
-  xbt.deactivate_descendants(node, path, state)
-  local cost = state[path]
-  state[path] = nil
-  return cost
-end
-
 -- The tick function for sequence nodes
 local function tick_seq_node (node, path, state)
+   -- Cost and value for this node
+  local cost = 0
+  local value = 0
   for pos, child in pairs(node.children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
-    -- Store the total accumulated cost/value in state.path
-    local cv = state[path] or {0,0} -- cost and value
-    state[path] = {cv[1] + result.cost, cv[2] + (result.value or 0)}
+    -- Update the total accumulated cost/value
+    cost = cost + result.cost
+    value = value + (result.value or 0)
     if xbt.is_failed(result) then
       -- A child node has failed, which means that the sequence node
       -- is failed as well and cannot continue.  Prepare for the next
       -- activation before returning the failed result.
-      cv = deactivate_seq_or_choice(node, path, state)
-      return xbt.failed(cv[1], "A child node failed")
+      xbt.deactivate_node(node, path, state)
+      return xbt.failed(cost, "A child node failed")
     end
     if xbt.is_running(result) then
-      return result
+      return xbt.running(cost + runtime_cost)
     end
     assert(xbt.is_succeeded(result),
       "Evaluation of seq-node child returned " .. tostring(result))
-    -- Prevent the cost and value from being counted in future ticks.
-    result.cost = 0
-    result.value = 0
+    -- No longer running, reset the runtime cost.
+    xbt.set_local_data(node, path, state, nil)
   end
-  -- We have ticked all children with a successful result.  Reset the
-  -- children's results to inactive
-  local cv = deactivate_seq_or_choice(node, path, state)
-  return xbt.succeeded(cv[1], cv[2])
+  xbt.deactivate_node(node, path, state)
+  return xbt.succeeded(cost, value)
 end
 
 -- Sequence ("seq") nodes evaluate their children sequentially and
@@ -442,15 +479,16 @@ end
 xbt.define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, path, state)
+  -- state[path] contains the accumulated runtime cost for
+  -- running child nodes.  It is reset whenever the node
+  -- succeeds or fails.
   local cost = 0
-  for pos, child in pairs(node.children) do
+  for pos,child in pairs(node.children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
-    -- Store the total accumulated cost in state.path
     cost = cost + result.cost
     if xbt.is_succeeded(result) then
-      -- We have succeeded; reset the children before returning
-      xbt.deactivate_descendants(node, path, state)
+      xbt.deactivate_node(node, path, state)
       return xbt.succeeded(cost, result.value)
     end
     if xbt.is_running(result) then
@@ -459,7 +497,7 @@ local function tick_choice_node (node, path, state)
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
   end
-  xbt.deactivate_descendants(node, path, state)
+  xbt.deactivate_node(node, path, state)
   return xbt.failed(cost, "All children failed")
 end
 

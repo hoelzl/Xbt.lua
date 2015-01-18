@@ -17,14 +17,19 @@ print("nodes: ", nodes)
 local function main()
   print("XBTs are ready to go.")
   math.randomseed(os.time())
-  local searcher = nodes.dual_searcher_2
+  local searcher = nodes.searcher
   local path = util.path.new()
   local state = xbt.make_state()
   local res = xbt.tick(searcher, path, state)
-  print("result:\t", res.status, res.value, res.cost)
-  for i = 1,10 do
-    local res = xbt.tick(searcher, path, state)
-    print("result:\t", res.status, res.value, res.cost)
+  print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  while not xbt.is_done(res) do
+    res = xbt.tick(searcher, path, state)
+    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  end
+  -- Show that finished results stay constant
+  for _=1,2 do
+    res = xbt.tick(searcher, path, state)
+    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
   end
   print("Done!")
 end
