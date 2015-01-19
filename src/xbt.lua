@@ -299,11 +299,13 @@ function xbt.tick (node, path, state)
   assert(node_type, tostring(node) .. " has no xbt_node_type.")
   util.debug_print("xbt.tick: node " .. node.id ..
     " of type " .. node_type .. "\t path=" .. tostring(path))
+  
   local prev_result = xbt.result(node, path, state)
   local improving = xbt.can_continue(prev_result) and state.improve
   if xbt.is_done(prev_result) and not improving then return prev_result end
   local e = xbt.evaluators[node_type]
   assert(e, "No evaluator for node type " .. node_type .. ".")
+  
   local result = e(node, path, state)
   xbt.set_result(node,path,state,result)
   return result
@@ -463,7 +465,7 @@ local function tick_seq_node (node, path, state)
       return xbt.failed(cost, "A child node failed")
     end
     if xbt.is_running(result) then
-      return xbt.running(cost + runtime_cost)
+      return xbt.running(cost)
     end
     assert(xbt.is_succeeded(result),
       "Evaluation of seq-node child returned " .. tostring(result))
@@ -492,7 +494,7 @@ local function tick_choice_node (node, path, state)
       return xbt.succeeded(cost, result.value)
     end
     if xbt.is_running(result) then
-      return result
+      return xbt.running(cost)
     end
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
