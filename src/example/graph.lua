@@ -64,9 +64,7 @@ function graph.maxmin_distance(nodes)
   local node_index = -1
   for i,n in ipairs(nodes) do
     local d = graph.min_node_distance(n, nodes)
-    -- print("maxmin: d = ", d, " dist = ", dist)
     if d > dist then
-      -- print("updating")
       dist = d
       node_index = i
     end
@@ -111,14 +109,11 @@ function graph.make_short_edge_generator (slack)
   return function (nodes)
     local edges = {}
     local maxmin_dist = graph.maxmin_distance(nodes)
-    print("maxmin dist: ", maxmin_dist)
     for i = 1,#nodes-1 do
       for j = i+1,#nodes do
         local n1,n2 = nodes[i], nodes[j]
         local dist = graph.node_dist(n1, n2)
-        print("dist: ", dist, n1.id, n2.id)
         if dist <= maxmin_dist * slack then
-          print("  adding edge:", n1.id, n2.id)
           local edge1 = {from=n1, to=n2, type="edge", dist=dist, cost=dist}
           edges[#edges+1] = edge1
           n1.edges[j] = edge1
