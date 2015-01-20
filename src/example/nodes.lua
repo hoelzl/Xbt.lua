@@ -5,6 +5,7 @@
 
 local util = require("util")
 local xbt = require("xbt")
+local graph = require("example.graph")
 
 local nodes = {}
 
@@ -98,5 +99,10 @@ nodes.dual_searcher_1 = xbt.seq({
 nodes.dual_searcher_2 = xbt.seq({
   nodes.search_pattern, nodes.random_walk
 })
+
+
+----------------------------------------------------------
+-- Generate actions for a graph
+-- 
 
 return nodes

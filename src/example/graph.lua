@@ -3,6 +3,7 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
+local xbt = require("xbt")
 local graph = {}
 
 --- Compute the distance between two nodes
@@ -158,6 +159,23 @@ function graph.generate_graph (number_of_nodes, size, edge_generator)
   return {nodes=nodes, edges=edges}
 end
 
+--- All nodes reachable via an outgoing edge.
+-- Compute all nodes of `g` that are directly reachable from `n` via an
+-- outgoing edge.
+-- @param g A graph.
+-- @param n Either a node or a node id.
+function graph.outnodes (g, n)
+  if type(n) == "number" then
+    n = g.nodes[n]
+  end
+  assert(n, "Node not found.")
+  local res = {}
+  for _,edge in pairs(n.edges) do
+    res[#res+1] = edge.to
+  end
+  return res
+end
+
 --- Generate a square two-dimensional table.
 -- Genrate a table with `size`*`size` entries, each of which has the
 -- value `init_value`.
@@ -265,6 +283,34 @@ function graph.pathstring (g, n1, n2)
     res = res .. "]"
   else
     res = "<no path>"
+  end
+  return res
+end
+
+
+function graph.make_move_action (edge)
+  local target_node = edge.to
+  local cost = edge.cost
+  local value = target_node.value or 0
+  return xbt.action(function (node, path, state)
+      state.current_node = target_node.id
+      return value
+    end,
+    cost)
+end
+
+function graph.make_node_move_actions (node)
+  local res = {}
+  for _,edge in pairs(node.edges) do
+    res[#res+1] = graph.make_move_action(edge)
+  end
+  return res
+end
+
+function graph.make_graph_action_table (g)
+  local res = {}
+  for id,node in ipairs(g.nodes) do
+    res[id] = graph.make_node_move_actions(node)
   end
   return res
 end

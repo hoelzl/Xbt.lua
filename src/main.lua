@@ -22,6 +22,8 @@ local function navigate_graph ()
       print(i, "->", j, graph.pathstring(g, i, j))
     end
   end
+  local t = graph.make_graph_action_table(g)
+  print("Action table size: ", #t)
 end
 
 local function search ()
