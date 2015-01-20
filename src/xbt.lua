@@ -540,7 +540,8 @@ end
 -- reached.  It receives the node, path and state as arguments, and
 -- either the result of the evaluation if `child_fun` returned at
 -- least one child, or `nil` otherwise.  
-xbt.define_node_type("xchoice", {"children", "child_fun", "update_fun"},
+xbt.define_node_type("xchoice",
+  {"children", "child_fun", "update_fun", "data"},
   tick_xchoice_node)
 
 return xbt
