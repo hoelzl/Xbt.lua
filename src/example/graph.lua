@@ -287,16 +287,21 @@ function graph.pathstring (g, n1, n2)
   return res
 end
 
+local move_action_name_prefix = "__move_action_from_"   
 
 function graph.make_move_action (edge)
   local target_node = edge.to
   local cost = edge.cost
   local value = target_node.value or 0
-  return xbt.action(function (node, path, state)
+  local action_name = move_action_name_prefix ..
+    edge.from.id .. "_to_" .. target_node.id
+  xbt.define_function_name(action_name, function (node, path, state)
       state.current_node = target_node.id
       return value
-    end,
-    cost)
+    end) 
+  local action = xbt.action(action_name, cost)
+  action.target_node = target_node.id
+  return action
 end
 
 function graph.make_node_move_actions (node)

@@ -328,7 +328,7 @@ end
 -- @param compilers If provided the argument is a table mapping
 --  backend names to functions that can compile the XBT for that type
 --  of backend.  Default is `{}`.
-function xbt.define_node_type(node_type, arg_names, evaluator, compilers)
+function xbt.define_node_type (node_type, arg_names, evaluator, compilers)
   xbt[node_type] = function (...)
     local args = {...}
     local node = {xbt_node_type=node_type, id=util.uuid()}
