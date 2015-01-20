@@ -38,13 +38,17 @@ end
 
 function graph.maxmin_distance(nodes)
   local dist = 0
-  for _,n in ipairs(nodes) do
+  local node_index = -1
+  for i,n in ipairs(nodes) do
     local d = graph.min_node_distance(n, nodes)
+    -- print("maxmin: d = ", d, " dist = ", dist)
     if d > dist then
+      -- print("updating")
       dist = d
+      node_index = i
     end
   end
-  return dist
+  return dist,node_index
 end
 
 function graph.generate_all_edges (nodes)
@@ -65,15 +69,18 @@ function graph.generate_all_edges (nodes)
 end
 
 function graph.make_short_edge_generator (slack)
-  slack = slack or 0
+  slack = slack or 1.2
   return function (nodes)
     local edges = {}
     local maxmin_dist = graph.maxmin_distance(nodes)
+    print("maxmin dist: ", maxmin_dist)
     for i = 1,#nodes-1 do
       for j = i+1,#nodes do
         local n1,n2 = nodes[i], nodes[j]
         local dist = graph.node_dist(n1, n2)
-        if dist < maxmin_dist + slack then
+        print("dist: ", dist, n1.id, n2.id)
+        if dist <= maxmin_dist * slack then
+          print("  adding edge:", n1.id, n2.id)
           local edge1 = {from=n1, to=n2, type="edge", dist=dist, cost=dist}
           edges[#edges+1] = edge1
           n1.edges[j] = edge1
@@ -142,7 +149,7 @@ function graph.path (g, n1, n2)
   local dist,next = g.dist,g.next
   local u = type(n1) == "number" and n1 or n1.id
   local v = type(n2) == "number" and n2 or n2.id
-  local path = {}
+  local path = {n1}
   if u == v then
     return path
   elseif not next[u][v] then
@@ -156,17 +163,20 @@ function graph.path (g, n1, n2)
   return path
 end
 
-local your_graph = graph.generate_graph(10, 500, graph.make_short_edge_generator())
-print(graph.diameter(your_graph.nodes))
-print(graph.maxmin_distance(your_graph.nodes))
-print("1->1:", graph.path(your_graph, 1, 1)[1])
-print("1->2:", graph.path(your_graph, 1, 2)[1])
-print("1->3:", graph.path(your_graph, 1, 3)[1])
-print("1->4:", graph.path(your_graph, 1, 4)[1])
-print("1->5:", graph.path(your_graph, 1, 5)[1])
-local my_graph = graph.generate_graph(30, {x=200, y=300})
-print(graph.diameter(my_graph.nodes))
-print(graph.maxmin_distance(my_graph.nodes))
-print(#my_graph.edges)
+function graph.pathstring (g, n1, n2)
+  local p = graph.path(g, n1, n2)
+  local res = "["
+  if p then
+    local sep = ""
+    for _,node in ipairs(p) do
+      res = res .. sep .. tostring(node)
+      sep = "->"
+    end
+    res = res .. "]"
+  else
+    res = "<no path>"
+  end
+  return res
+end
 
 return graph

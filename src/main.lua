@@ -8,15 +8,24 @@
 local util = require("util")
 local xbt = require("xbt")
 local nodes = require("example.nodes")
+local graph = require("example.graph")
 
-print("util:  ", util)
-print("xbt:   ", xbt)
-print("nodes: ", nodes)
+local function navigate_graph ()
+  print("Navigating graph...")
+  local g = graph.generate_graph(100, 500, graph.make_short_edge_generator(1.2))
+  print("Diameter:        ", graph.diameter(g.nodes))
+  local d,n = graph.maxmin_distance(g.nodes)
+  print("Maxmin distance: ", d, "for node", n)
+  print("Nodes:           ", #g.nodes, "Edges:", #g.edges)
+  for i=1,25 do
+    for j = i,25 do
+      print(i, "->", j, graph.pathstring(g, i, j))
+    end
+  end
+end
 
---- Show off some XBT functionality.
-local function main()
-  print("XBTs are ready to go.")
-  math.randomseed(os.time())
+local function search ()
+  print("Searching...")  
   local searcher = nodes.searcher
   local path = util.path.new()
   local state = xbt.make_state()
@@ -31,6 +40,15 @@ local function main()
     res = xbt.tick(searcher, path, state)
     print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
   end
+end
+
+--- Show off some XBT functionality.
+local function main()
+  print("XBTs are ready to go.")
+  math.randomseed(1)
+  navigate_graph()
+  math.randomseed(os.time())
+  search()
   print("Done!")
 end
 
