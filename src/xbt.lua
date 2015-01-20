@@ -481,9 +481,6 @@ end
 xbt.define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, path, state)
-  -- state[path] contains the accumulated runtime cost for
-  -- running child nodes.  It is reset whenever the node
-  -- succeeds or fails.
   local cost = 0
   for pos,child in pairs(node.children) do
     local p = path:copy(pos)
@@ -506,5 +503,44 @@ end
 -- Choice nodes evaluate their children sequentially and succeed as
 -- soon as one of their children succeeds.
 xbt.define_node_type("choice", {"children"}, tick_choice_node)
+
+local function tick_xchoice_node (node, path, state)
+  local cost = 0
+  local result = nil
+  -- Don't reorder children whild the node is running.
+  if not xbt.is_running(xbt.result(node, path, state)) then
+    node.children = node.child_fun(node, path, state)
+  end
+  for pos,child in pairs(node.children) do
+    local p = path:copy(pos)
+    result = xbt.tick(child, p, state)
+    cost = cost + result.cost
+    if xbt.is_succeeded(result) then
+      node.update_fun(node, path, state, result)
+      xbt.deactivate_node(node, path, state)
+      return xbt.succeeded(cost, result.value)
+    end
+    if xbt.is_running(result) then
+      return xbt.running(cost)
+    end
+    assert(xbt.is_failed(result),
+      "Evaluation of choice node returned " .. tostring(result))
+  end
+  node.update_fun(node, path, state, result)
+  xbt.deactivate_node(node, path, state)
+  return xbt.failed(cost, "All children failed")
+end
+
+-- External choice nodes call a function to determine the evaluation
+-- order of their children and succeed as soon as one of their
+-- children succeeds.  If this function removes nodes from the list
+-- of children it has to deactivate them to free any resources the
+-- children might retain.  The update_fun is called just before
+-- deactivating the node when a successful or failed result has been
+-- reached.  It receives the node, path and state as arguments, and
+-- either the result of the evaluation if `child_fun` returned at
+-- least one child, or `nil` otherwise.  
+xbt.define_node_type("xchoice", {"children", "child_fun", "update_fun"},
+  tick_xchoice_node)
 
 return xbt

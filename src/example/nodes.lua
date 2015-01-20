@@ -8,6 +8,25 @@ local xbt = require("xbt")
 
 local nodes = {}
 
+local fail_walk_avg_tries = 3
+
+local function fail_walk (node, path, state)
+  print("fw:\t", node.id, "path = ", tostring(path), "state =", state)
+  local prev_result = xbt.result(node, path, state)
+  local prev_cost = (xbt.is_running(prev_result) and prev_result.cost) or 0
+  if (math.random(fail_walk_avg_tries) == 1) then
+    local cost = prev_cost + math.random()
+    print("\tfw: failed with cost    " .. cost)
+    return xbt.failed(cost, "Fell off a cliff.")
+  else
+    local cost = prev_cost + math.random()
+    print("\tfw: running with cost   " .. cost)
+    return xbt.running(cost)
+  end
+end
+
+nodes.fail_walk = xbt.fun(fail_walk)
+
 local random_walk_avg_tries = 5
 
 local function random_walk (node, path, state)
@@ -58,9 +77,19 @@ end
 
 nodes.search_pattern = xbt.fun(search_pattern)
 
-nodes.searcher = xbt.choice({
-  nodes.random_walk, nodes.search_pattern
-})
+nodes.searcher = xbt.xchoice({
+    nodes.random_walk, nodes.search_pattern, nodes.fail_walk, nodes.fail_walk
+  },
+  function (node) 
+    print("XChoice: reordering children.")
+    local temp = node.children[1]
+    table.remove(node.children, 1)
+    node.children[#node.children+1] = temp
+    return node.children
+  end,
+  function ()
+    print("XChoice: collecting result.")
+  end)
 
 nodes.dual_searcher_1 = xbt.seq({
   nodes.random_walk, nodes.search_pattern

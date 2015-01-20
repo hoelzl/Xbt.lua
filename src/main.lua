@@ -12,13 +12,13 @@ local graph = require("example.graph")
 
 local function navigate_graph ()
   print("Navigating graph...")
-  local g = graph.generate_graph(100, 500, graph.make_short_edge_generator(1.2))
+  local g = graph.generate_graph(10, 500, graph.make_short_edge_generator(1.2))
   print("Diameter:        ", graph.diameter(g.nodes))
   local d,n = graph.maxmin_distance(g.nodes)
   print("Maxmin distance: ", d, "for node", n)
   print("Nodes:           ", #g.nodes, "Edges:", #g.edges)
-  for i=1,25 do
-    for j = i,25 do
+  for i=1,5 do
+    for j = i,5 do
       print(i, "->", j, graph.pathstring(g, i, j))
     end
   end
