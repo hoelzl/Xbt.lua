@@ -544,4 +544,22 @@ xbt.define_node_type("xchoice",
   {"children", "child_fun", "update_fun", "data"},
   tick_xchoice_node)
 
+--- Epsilon-greedy `child_fun` for `xchoice`.
+-- Sort the children of a node and with probability `node.epsilon`
+-- swap the first element of the result with another one.
+-- The function to generate the sorted list of children is taken
+-- from `node.data.sorted_children`.
+-- @param node The xchoice node.
+-- @param path Path that identifies the instance of the node
+-- @param state The current state of the evaluation.
+-- @return An epsilon-greedy result list of children.
+function xbt.epsilon_greedy_child_fun (node, path, state)
+  local children = node.data.sorted_children(node, path, state)
+  if #children >= 2 and math.random < node.epsilon then
+    local temp = math.random(2, #children)
+    children[1],children[temp] = children[temp],children[1]
+  end
+  return children
+end
+
 return xbt
