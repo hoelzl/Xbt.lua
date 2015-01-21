@@ -12,7 +12,7 @@ local graph = require("example.graph")
 
 local function navigate_graph ()
   print("Navigating graph...")
-  local g = graph.generate_graph(10, 500, graph.make_short_edge_generator(1.2))
+  local g = graph.generate_graph(100, 500, graph.make_short_edge_generator(1.2))
   print("Diameter:        ", graph.diameter(g.nodes))
   local d,n = graph.maxmin_distance(g.nodes)
   print("Maxmin distance: ", d, "for node", n)
@@ -22,8 +22,8 @@ local function navigate_graph ()
       print(i, "->", j, graph.pathstring(g, i, j))
     end
   end
-  local t = graph.make_graph_action_table(g)
-  print("Action table size: ", #t)
+  local a,t = graph.make_graph_action_tables(g)
+  print("Action table sizes: ", #a, #t)
 end
 
 local function search ()

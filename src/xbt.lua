@@ -9,6 +9,8 @@ local util = require("util")
 
 local xbt = {}
 
+--- Result Types.
+-- 
 -- A node can either be inactive, running, succeeded or failed.  We
 -- define functions that return tables correspondig to these XBT
 -- result types.  These tables share several attributes: The Boolean
@@ -24,6 +26,8 @@ local xbt = {}
 -- results carry a value.  Running node return the cost accumulated so
 -- far; their parents could use this to abort them if the accumulated
 -- cost is too high.
+-- 
+-- @section Result-Types
 
 --- Create an XBT result value for inactive nodes.
 -- @param cost The cost of executing the node (including all
@@ -149,6 +153,11 @@ function xbt.can_continue (result)
   return result.continue
 end
 
+--- State.
+-- 
+-- XBTs are passed a `state` object when they are evaluated.
+-- 
+-- @section State
 
 --- Make a new state, or update a table to become a state.
 -- Any table can be used as state (there is no need to have a
@@ -247,6 +256,14 @@ function xbt.result(node, path, state)
   return res
 end
 
+--- Evaluation and Compilation.
+-- 
+-- The following functions are concerned with evaluating nodes or
+-- compiling XBTs into a for that can be integrated into other systems
+-- (currently no compilers are available).
+-- 
+-- @section Evaluation
+
 --- Evaluators for ticking nodes.
 -- Ticking is the fundamental operation that triggers evaluation of
 -- nodes.  To make the node types extensible we look up the ticking
@@ -257,7 +274,7 @@ end
 -- evaluation.
 xbt.evaluators = {}
 
---- Compilers for XBTs
+--- Compilers for XBTs.
 -- To achieve greater performance (or to integrate XBTs into existing
 -- systems) it may be necessary to compile the XBT into a
 -- representation that can be executed by the target system.  This
@@ -311,12 +328,12 @@ function xbt.tick (node, path, state)
   return result
 end
 
---- Define an evaluation function and a constructor for `node_type`.
--- @param node_type The node type that will be stored as
---  `xbt_node_type` in all instances.
+--- Define an evaluation function and a constructor for node type `nt`.
+-- @param nt The node type that will be stored as `xbt_node_type` in
+--  all instances.
 -- @param arg_names The names under which the arguments to the
 --  constructor are stored in the resulting node.  For example, if
---  `node_type` is `"foo"` and `arg_names` is `{"bar", "baz"}`,
+--  `nt` is `"foo"` and `arg_names` is `{"bar", "baz"}`,
 --  `define_node_type` will define a function `foo` that takes two
 --  arguments `arg1` and `arg2` and returns a table
 --  `{xbt_node_type="foo", bar=arg1, baz=arg2, id=...}`.  Composite
@@ -328,17 +345,17 @@ end
 -- @param compilers If provided the argument is a table mapping
 --  backend names to functions that can compile the XBT for that type
 --  of backend.  Default is `{}`.
-function xbt.define_node_type (node_type, arg_names, evaluator, compilers)
-  xbt[node_type] = function (...)
+function xbt.define_node_type (nt, arg_names, evaluator, compilers)
+  xbt[nt] = function (...)
     local args = {...}
-    local node = {xbt_node_type=node_type, id=util.uuid()}
+    local node = {xbt_node_type=nt, id=util.uuid()}
     for i, arg_name in ipairs(arg_names) do
       node[arg_name] = args[i]
     end
     return node
   end
-  xbt.evaluators[node_type] = evaluator
-  xbt.compilers[node_type] = compilers or {}
+  xbt.evaluators[nt] = evaluator
+  xbt.compilers[nt] = compilers or {}
 end
 
 --- Set all descendants of a node to result status `inactive`.
@@ -363,7 +380,7 @@ function xbt.deactivate_descendants (node, path, state)
   end
 end
 
---- Deactivate a node
+--- Deactivate a node.
 -- Set all descendants of a node to status `inactive` and clear any
 -- data the node might have stored under its path.
 -- @param node The node whose descendants we are deactivating.
@@ -378,6 +395,7 @@ end
 --- A table mapping function names to functions.
 -- Function and action nodes use this table to look up their `fun`
 -- attributes.
+-- 
 xbt.functions = {};
 
 --- Define a name for a function or action.
@@ -413,11 +431,16 @@ function xbt.lookup_function (f)
   end
 end
 
--- An XBT node is represented by a table containing an xbt_node_type
+--- Node Types.
+-- 
+-- An XBT node is represented by a table containing an `xbt_node_type`
 -- attribute.  Nodes can either be composite (have child nodes) or
 -- atomic (encapsulate a function or coroutine).  Each node has a
 -- unique ID.
+-- 
+-- @section Node-Types
 
+--- Generate a function node.
 -- Function ("fun") nodes encapsulate a function.  The function is
 -- called with the node, the path and a state as argument sand has to
 -- return a valid XBT result.  The node and path are mainly useful if
@@ -428,7 +451,19 @@ end
 -- a useful key, since there is no guarantee that different
 -- invocations of the function at the same position will receive
 -- identical paths.  The paths are guaranteed to be `==`, however.
-xbt.define_node_type("fun", {"fun"}, function (node, path, state)
+-- @function fun
+-- @param fun A function invoked with `node`, `path` and `state` as
+--  arguments.  It performs the work of this node.
+-- @param args The "arguments" for the `fun` parameter.  They are
+--  stored as `node.args` so that they can be accessed by the `fun`
+--  parameter when it is executing.  These arguments are the same for
+--  all invocations of the node, since they are stored in the node
+--  itself, not in the path.
+--  @return An function node.  This node is serializable if the `fun`
+--   and `args` arguments are serializable.  Typically this is the
+--   case if `fun` is a string that references a function defined with
+--  `define_function_name`.
+xbt.define_node_type("fun", {"fun", "args"}, function (node, path, state)
     local fun = xbt.lookup_function(node.fun)
     local result = fun(node, path, state)
     assert(xbt.is_result(result),
@@ -436,14 +471,34 @@ xbt.define_node_type("fun", {"fun"}, function (node, path, state)
     return result
   end)
 
+-- TODO: Maybe actions should fail when `fun` throws an exception?
+
+--- Generate an action node.
 -- Action nodes are similar to functions, but they wrap the return
 -- value of the function into a XBT result that indicates that the
 -- function has succeeded and contains the return value of the
--- function as value.  The cost of the call has to be provided when
--- the node is created.
-xbt.define_node_type("action", {"fun", "cost"}, function (node, path, state)
+-- function as value.  The cost of the call has to be provided as
+-- `args.cost` when the node is created; it is the same for all
+-- invocations of this node.  Actions should not modify the 
+-- `node.args.cost` value to return different costs; functions that
+-- need to return different costs for different invocations should not
+-- be defined as action nodes but rather as `fun` nodes.
+-- @function action
+-- @param fun A function invoked with `node`, `path` and `state` as
+--  arguments.  It performs the work of this node.
+-- @param args The "arguments" for the `fun` parameter.  They are
+--  stored as `node.args` so that they can be accessed by the `fun`
+--  parameter when it is executing.  These arguments are the same for
+--  all invocations of the node, since they are stored in the node
+--  itself, not in the path.
+-- @return An action node.  This node is serializable if the `fun` and
+--  `args` arguments are serializable.  Typically this is the case if
+--  `fun` is a string that references a function defined with
+--  `define_function_name`.
+xbt.define_node_type("action", {"fun", "args"}, function (node, path, state)
   local fun = xbt.lookup_function(node.fun)
-  return xbt.succeeded(node.cost, fun(node, path, state))
+  local cost = node.args.cost or 0
+  return xbt.succeeded(cost, fun(node, path, state))
 end)
 
 -- The tick function for sequence nodes
@@ -476,8 +531,13 @@ local function tick_seq_node (node, path, state)
   return xbt.succeeded(cost, value)
 end
 
+--- Generate a sequence node.
 -- Sequence ("seq") nodes evaluate their children sequentially and
 -- fail as soon as one of their children fails.
+-- @function seq
+-- @param children The child nodes of the node.
+-- @return A sequence node.  This node is serializable if its children
+--  are.
 xbt.define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, path, state)
@@ -500,8 +560,13 @@ local function tick_choice_node (node, path, state)
   return xbt.failed(cost, "All children failed")
 end
 
+--- Generate a choice node.
 -- Choice nodes evaluate their children sequentially and succeed as
 -- soon as one of their children succeeds.
+-- @function choice
+-- @param children The child nodes of the node.
+-- @return A choice node.  This node is serializable if its children
+--  are.
 xbt.define_node_type("choice", {"children"}, tick_choice_node)
 
 local function tick_xchoice_node (node, path, state)
@@ -531,6 +596,7 @@ local function tick_xchoice_node (node, path, state)
   return xbt.failed(cost, "All children failed")
 end
 
+--- Generate an external choice node.
 -- External choice nodes call a function to determine the evaluation
 -- order of their children and succeed as soon as one of their
 -- children succeeds.  If this function removes nodes from the list
@@ -539,7 +605,11 @@ end
 -- deactivating the node when a successful or failed result has been
 -- reached.  It receives the node, path and state as arguments, and
 -- either the result of the evaluation if `child_fun` returned at
--- least one child, or `nil` otherwise.  
+-- least one child, or `nil` otherwise.
+-- @function xchoice
+-- @param children The child nodes of the node.
+-- @return An external choice node.  This node is serializable if its
+--  children are.
 xbt.define_node_type("xchoice",
   {"children", "child_fun", "update_fun", "data"},
   tick_xchoice_node)

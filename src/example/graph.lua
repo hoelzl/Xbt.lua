@@ -287,37 +287,72 @@ function graph.pathstring (g, n1, n2)
   return res
 end
 
+-- If `use_global_move_action` is true, `make_move_action` generates
+-- a call to action `move` with the ids of source and target as well
+-- as the value of the transition as node arguments.
+graph.use_global_move_action = true
+
+xbt.define_function_name("move", function (node, path, state)
+    assert(state.current_node == node.args.from, 
+      "Performing a transition from wrong start node")
+    state.current_node = node.args.to
+    return node.args.value
+  end) 
+
 local move_action_name_prefix = "__move_action_from_"   
 
 function graph.make_move_action (edge)
   local target_node = edge.to
   local cost = edge.cost
   local value = target_node.value or 0
-  local action_name = move_action_name_prefix ..
-    edge.from.id .. "_to_" .. target_node.id
-  xbt.define_function_name(action_name, function (node, path, state)
-      state.current_node = target_node.id
-      return value
-    end) 
-  local action = xbt.action(action_name, cost)
-  action.target_node = target_node.id
+  local action_name
+  if graph.use_global_move_action then
+    action_name = "move"
+  else
+    action_name = move_action_name_prefix ..
+      edge.from.id .. "_to_" .. target_node.id
+    xbt.define_function_name(action_name, function (node, path, state)
+        assert(state.current_node == node.args.from, 
+          "Performing a transition from wrong start node")
+        state.current_node = target_node.id
+        return value
+      end)
+  end
+  local action = xbt.action(action_name,
+    {from=edge.from.id, to=target_node.id, value=value},
+    cost)
   return action
 end
 
 function graph.make_node_move_actions (node)
-  local res = {}
+  -- `actions` is an array of actions, i.e., if there are i actions
+  -- available for `node` then `actions` is an array of length i where
+  -- each entry is a `move` action to some node.  `to_nodes` is a
+  -- table indexed by the ids of the transition targets, i.e., if
+  -- there is a transition from `node` to `n` then `to_nodes[n]`
+  -- contains that action, otherwise it is falsy.
+  local actions, to_nodes = {}, {}
   for _,edge in pairs(node.edges) do
-    res[#res+1] = graph.make_move_action(edge)
+    local action = graph.make_move_action(edge)
+    actions[#actions+1] = action
+    to_nodes[edge.to.id] = action
   end
-  return res
+  return actions, to_nodes
 end
 
-function graph.make_graph_action_table (g)
-  local res = {}
+function graph.make_graph_action_tables (g)
+  -- For each node `n` in `g`, `actions[n]` is an array of actions,
+  -- i.e., if there are i actions available for a node `n` then
+  -- `actions[n]` is an array of length i where each entry is a `move`
+  -- action to some node.  `to_nodes` is a table indexed by the ids of
+  -- the transition targets, i.e., if there is a transition from `n1`
+  -- to `n2` then `to_nodes[n1][n2]` contains that action, otherwise
+  -- it is falsy.
+  local actions, to_nodes = {}, {}
   for id,node in ipairs(g.nodes) do
-    res[id] = graph.make_node_move_actions(node)
+    actions[id], to_nodes[id] = graph.make_node_move_actions(node)
   end
-  return res
+  return actions, to_nodes
 end
 
 return graph
