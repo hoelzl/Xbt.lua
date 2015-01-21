@@ -634,6 +634,7 @@ end
 
 -- TODO: Provide a timeout
 local function tick_suppress_failure (node, path, state)
+  assert(node.child, "`Suppress_failure` node needs a child node.")
   local child_result = xbt.tick(node.child, path, state)
   if xbt.is_failed(child_result) then
     return xbt.running(child_result.cost)
@@ -645,6 +646,7 @@ end
 xbt.define_node_type("suppress_failure", {"child"}, tick_suppress_failure)
 
 local function tick_negate (node, path, state)
+  assert(node.child, "`Negate` node needs a child node.")
   local child_result = xbt.tick(node.child, path, state)
   if xbt.is_failed(child_result) then
     local data = node.data
@@ -659,5 +661,36 @@ end
 
 xbt.define_node_type("negate", {"child", "data"}, tick_negate)
 
+
+-- TODO: Provide a timeout
+local function tick_until (node, path, state)
+  assert(node.pred, "`Until` node needs a predicate.")
+  assert(node.child, "`Until` node needs a child node.")
+  local pred = node.data.pred
+  if pred(node, path, state) then
+    return xbt.succeeded(0, node.data.default_value)
+  end
+  local result = xbt.tick(node.child, path, state)
+  if pred(node, path, state) then
+    return result
+  else
+    return xbt.running(result.cost)
+  end
+end
+
+xbt.define_node_type("until", {"pred", "child"}, tick_until)
+
+local function tick_when (node, path, state)
+  assert(node.pred, "`When` node needs a predicate.")
+  assert(node.child, "`When` node needs a child node.")
+  local pred = node.data.pred
+  if pred(node, path, state) then
+    return xbt.tick(node.child, path, state) 
+  else
+    return xbt.failed(0)
+  end
+end
+
+xbt.define_node_type("when", {"pred", "child"}, tick_when)
 
 return xbt
