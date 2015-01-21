@@ -70,6 +70,14 @@ local function tick_negate ()
   end
 end
 
+----------------------------------------------------------------------
+-- Graph navigation using XBTs
+-- 
+
+local function can_pick_up_victim (node, path, state)
+  return not state.carrying
+end
+
 local function is_at_home_node (node, path, state)
   local cni = state.current_node -- This is an index, not a node
   if not cn then return false end
@@ -114,7 +122,7 @@ end
 --- Show off some XBT functionality.
 local function main()
   print("XBTs are ready to go.")
-  --[[
+  ---[[
   math.randomseed(1)
   navigate_graph()
   math.randomseed(os.time())
