@@ -74,8 +74,15 @@ end
 -- Graph navigation using XBTs
 -- 
 
-local function can_pick_up_victim (node, path, state)
-  return not state.carrying
+local function is_carrying_victim (node, path, state)
+  return state.carrying
+end
+xbt.define_function_name("is_carrying_victim", is_carrying_victim)
+
+local function drop_off_victim (node, path, state)
+  local carrying = state.carrying
+  state.carrying = false
+  return carrying
 end
 
 local function is_at_home_node (node, path, state)
@@ -85,6 +92,7 @@ local function is_at_home_node (node, path, state)
   assert(node, "Could not find node " .. cn)
   return node.type == "home"
 end
+xbt.define_function_name("is_at_home_node", is_at_home_node)
 
 local function has_located_victim (node, path, state)
   local cni = state.current_node -- This is an index, not a node
@@ -92,6 +100,17 @@ local function has_located_victim (node, path, state)
   local node = state.graph.nodes[cn]
   assert(node, "Could not find node " .. cn)
   return node.type == "victim"
+end
+xbt.define_function_name("has_located_victim", has_located_victim)
+
+local function can_pick_up_victim (node, path, state)
+  return not state.carrying
+end
+xbt.define_function_name("can_pick_up_victiim", can_pick_up_victim)
+
+local function pick_up_victim (node, path, state)
+  state.carrying = true
+  return true
 end
 
 local function pick_victim_location (node, path, state)
@@ -103,7 +122,13 @@ local function pick_home_location (node, path, state)
   state.target_location = 1
 end
 
-local robot_xbt = xbt.seq()
+local robot_xbt = xbt.choice({
+  xbt.when("is_at_home_node", 
+    xbt.when("is_carrying_victim", xbt.bool("drop_off_victim"))),
+  xbt.when("has_located_victim",
+    xbt.when("can_pick_up_victim", xbt.bool("pick_up_victim"))),
+  xbt.seq()
+})
 
 local function graph_search ()
   print("Searching in graph...")

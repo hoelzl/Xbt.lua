@@ -285,6 +285,10 @@ xbt.compilers = {}
 --- The default cost for failures.
 xbt.default_failure_cost = -1
 
+-- TODO: Don't store the result for nodes marked as `transient`.
+-- This will allow certain predicates to be triggered at every
+-- tick.
+
 --- Trigger evaluation of a node.
 -- A tick triggers the evaluation of an XBT.  Each leaf node should
 -- perform a small amount of computation when ticked and then return
@@ -499,6 +503,39 @@ xbt.define_node_type("action", {"fun", "args"}, function (node, path, state)
   local fun = xbt.lookup_function(node.fun)
   local cost = node.args.cost or 0
   return xbt.succeeded(cost, fun(node, path, state))
+end)
+
+--- Generate a node that wraps a Boolean result.
+-- Boolean nodes are specialized function nodes that return either
+-- `failed` or `succeeded`, depending on whether the encapsulated
+-- function returns a truthy or falsy value.  The cost of the call
+-- has to be provided as `args.cost` when the node is created; it is
+-- the same for all invocations of this node.  The evaluated function
+-- should not modify the `node.args.cost` value to return different
+-- costs; functions that need to return different costs for different
+-- invocations should instead be defined as `fun` nodes.
+-- @function bool
+-- @param fun A function invoked with `node`, `path` and `state` as
+--  arguments.  It performs the work of this node.
+-- @param args The "arguments" for the `fun` parameter.  They are
+--  stored as `node.args` so that they can be accessed by the `fun`
+--  parameter when it is executing.  These arguments are the same for
+--  all invocations of the node, since they are stored in the node
+--  itself, not in the path.
+-- @return A Boolean node.  This node is serializable if the `fun` and
+--  `args` arguments are serializable.  Typically this is the case if
+--  `fun` is a string that references a function defined with
+--  `define_function_name`.
+xbt.define_node_type("bool", {"fun", "args"}, function (node, path, state)
+  local fun = xbt.lookup_function(node.fun)
+  local cost = node.args.cost or 0
+  local result = fun(node, path, state)
+  if result then
+    local value = node.args.value or 0
+    return xbt.succeeded(cost, value)
+  else
+    return xbt.failed(cost)
+  end
 end)
 
 -- The tick function for sequence nodes
