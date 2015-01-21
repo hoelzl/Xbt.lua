@@ -666,7 +666,7 @@ xbt.define_node_type("negate", {"child", "data"}, tick_negate)
 local function tick_until (node, path, state)
   assert(node.pred, "`Until` node needs a predicate.")
   assert(node.child, "`Until` node needs a child node.")
-  local pred = node.data.pred
+  local pred = xbt.lookup_function(node.data.pred)
   if pred(node, path, state) then
     return xbt.succeeded(0, node.data.default_value)
   end
@@ -683,7 +683,7 @@ xbt.define_node_type("until", {"pred", "child"}, tick_until)
 local function tick_when (node, path, state)
   assert(node.pred, "`When` node needs a predicate.")
   assert(node.child, "`When` node needs a child node.")
-  local pred = node.data.pred
+  local pred = xbt.lookup_function(node.data.pred)
   if pred(node, path, state) then
     return xbt.tick(node.child, path, state) 
   else
