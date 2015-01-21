@@ -44,6 +44,32 @@ local function search ()
   end
 end
 
+local function tick_suppress_failure ()
+  print("Ticking until done...")
+  local node = xbt.suppress_failure(nodes.searcher)
+  local path = util.path.new()
+  local state = xbt.make_state()
+  local res = xbt.tick(node, path, state)
+  print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  while not xbt.is_done(res) do
+    res = xbt.tick(node, path, state)
+    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  end
+end
+
+local function tick_negate ()
+  print("Ticking negated node...")
+  local node = xbt.negate(nodes.searcher)
+  local path = util.path.new()
+  local state = xbt.make_state()
+  local res = xbt.tick(node, path, state)
+  print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  while not xbt.is_done(res) do
+    res = xbt.tick(node, path, state)
+    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  end
+end
+
 --- Show off some XBT functionality.
 local function main()
   print("XBTs are ready to go.")
@@ -51,6 +77,8 @@ local function main()
   navigate_graph()
   math.randomseed(os.time())
   search()
+  tick_suppress_failure()
+  tick_negate()
   print("Done!")
 end
 

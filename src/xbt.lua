@@ -324,7 +324,7 @@ function xbt.tick (node, path, state)
   assert(e, "No evaluator for node type " .. node_type .. ".")
   
   local result = e(node, path, state)
-  xbt.set_result(node,path,state,result)
+  xbt.set_result(node, path, state, result)
   return result
 end
 
@@ -631,5 +631,33 @@ function xbt.epsilon_greedy_child_fun (node, path, state)
   end
   return children
 end
+
+-- TODO: Provide a timeout
+local function tick_suppress_failure (node, path, state)
+  local child_result = xbt.tick(node.child, path, state)
+  if xbt.is_failed(child_result) then
+    return xbt.running(child_result.cost)
+  else
+    return child_result
+  end
+end
+
+xbt.define_node_type("suppress_failure", {"child"}, tick_suppress_failure)
+
+local function tick_negate (node, path, state)
+  local child_result = xbt.tick(node.child, path, state)
+  if xbt.is_failed(child_result) then
+    local data = node.data
+    local value = data and data.value or 0
+    return xbt.succeeded(child_result.cost, value)
+  elseif xbt.is_succeeded(child_result) then
+    return xbt.failed(child_result.cost, "Child node succeeded.")
+  else
+    return child_result
+  end
+end
+
+xbt.define_node_type("negate", {"child", "data"}, tick_negate)
+
 
 return xbt
