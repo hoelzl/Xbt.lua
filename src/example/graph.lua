@@ -6,6 +6,14 @@
 local xbt = require("xbt")
 local graph = {}
 
+graph.print_trace_info = true
+
+local function print_trace (...)
+  if graph.print_trace_info then
+    print(...)
+  end
+end
+
 --- Compute the distance between two nodes
 -- @param n1 The first node.
 -- @param n2 The second node.
@@ -295,12 +303,17 @@ graph.use_global_go_action = true
 xbt.define_function_name("go", function (node, path, state)
     assert(state.current_node_id == node.args.from, 
       "Performing a transition from wrong start node.")
+    local from = state.current_node_id
     local to = node.args.to
-    print(">>> Moving from state " .. state.current_node_id .. " to "
-      .. to .. ".")
+    local graph_node = state.graph.nodes[to]
+    local typeinfo = graph_node.type == "node" and "" or graph_node.type
     state.current_node_id = to
-    -- TODO: What about the value?  Need the transition.
-    return 0
+    local edge = state.graph.nodes[node.args.from].edges[node.args.to]
+    print_trace(">>> Moving from state " .. from .. " to " ..
+      to .. " (cost " .. edge.cost - edge.cost%1 .. "). \t"  ..
+      typeinfo)
+    assert(edge, "No edge for go action!")
+    return xbt.succeeded(edge.cost, 0)
   end) 
 
 local go_action_name_prefix = "__go_action_from_"   
@@ -322,7 +335,7 @@ function graph.make_go_action (edge)
         return value
       end)
   end
-  local action = xbt.action(action_name,
+  local action = xbt.fun(action_name,
     {from=edge.from.id, to=target_node.id, value=value},
     cost)
   return action
