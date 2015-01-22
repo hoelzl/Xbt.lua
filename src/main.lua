@@ -170,20 +170,20 @@ local function go_actions (node, path, state)
   local res = state.actions[cni]
   -- We might not have a best action if we cannot reach the chosen victim
   if cni and tni then
-    local best_action = state.to_nodes[cni][tni]
-    if best_action then
+    local next_node_id = state.best_moves[cni][tni]
+    if next_node_id then
       -- Move the best action to the front of the list of
       -- actions.
-      print("Best action: move to " .. tni .. ", target is " .. best_action.args.to)
+      print("Best action: move to " .. tni .. ", target is " .. next_node_id)
       for i = 1,#res do
         local a = res[i]
-        if a == best_action then
+        if a.args.to == next_node_id then
           res[i] = res[1]
           res[1] = a
           break
         end
       end
-      assert(res[1] == best_action)
+      assert(res[1].args.to == next_node_id)
     end
   end
   return res
@@ -209,7 +209,7 @@ local function graph_search ()
   print("Searching in graph...")
   local state = xbt.make_state()
   local path = util.path.new()
-  local g = graph.generate_graph(100, 100, graph.make_short_edge_generator(1.2))
+  local g = graph.generate_graph(30, 100, graph.make_short_edge_generator(1.5))
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
   g.nodes[1].type = "home"
@@ -221,6 +221,7 @@ local function graph_search ()
   local actions,to_nodes = graph.make_graph_action_tables(g)
   state.actions = actions
   state.to_nodes = to_nodes
+  state.movement_costs, state.best_moves = graph.floyd(g)
   for i = 1,20 do
     xbt.tick(robot_xbt, path, state)
     xbt.reset_node(robot_xbt, path, state)
