@@ -88,9 +88,12 @@ nodes.searcher = xbt.xchoice({
     node.children[#node.children+1] = temp
     return node.children
   end,
-  function ()
-    print("XChoice: collecting result.")
-  end)
+  {
+    update_fun = function ()
+      print("XChoice: collecting result.")
+    end
+  }
+)
 
 nodes.dual_searcher_1 = xbt.seq({
   nodes.random_walk, nodes.search_pattern

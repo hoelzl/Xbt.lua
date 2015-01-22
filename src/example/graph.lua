@@ -293,10 +293,14 @@ end
 graph.use_global_go_action = true
 
 xbt.define_function_name("go", function (node, path, state)
-    assert(state.current_node == node.args.from, 
-      "Performing a transition from wrong start node")
-    state.current_node = node.args.to
-    return node.args.to.value
+    print("go", state.current_node_id, node.args.to)
+    assert(state.current_node_id == node.args.from, 
+      "Performing a transition from wrong start node.")
+    local to = node.args.to
+    print("Moving from state " .. state.current_node_id .. " to " .. to)
+    state.current_node_id = to
+    -- TODO: What about the value?  Need the transition.
+    return 0
   end) 
 
 local go_action_name_prefix = "__go_action_from_"   
@@ -312,9 +316,9 @@ function graph.make_go_action (edge)
     action_name = go_action_name_prefix ..
       edge.from.id .. "_to_" .. target_node.id
     xbt.define_function_name(action_name, function (node, path, state)
-        assert(state.current_node == node.args.from, 
+        assert(state.current_node_id == node.args.from, 
           "Performing a transition from wrong start node")
-        state.current_node = target_node.id
+        state.current_node_id = target_node.id
         return value
       end)
   end

@@ -379,6 +379,7 @@ function xbt.deactivate_descendants (node, path, state)
     local child_result = xbt.result(child, child_path, state)
     if not xbt.is_inactive(child_result) then
       xbt.set_result(child, child_path, state, xbt.inactive())
+      xbt.set_local_data(child, child_path, state, nil)
       xbt.deactivate_descendants(child, child_path, state)
     end
   end
@@ -386,7 +387,8 @@ end
 
 --- Deactivate a node.
 -- Set all descendants of a node to status `inactive` and clear any
--- data the node might have stored under its path.
+-- data the node might have stored under its path, but keep the
+-- current result status of the node in `state`.
 -- @param node The node whose descendants we are deactivating.
 -- @param path The path to `node` in the XBT.
 -- @param state The state of the XBT's evaluation.
@@ -395,6 +397,16 @@ function xbt.deactivate_node (node, path, state)
   xbt.set_local_data(node, path, state, nil)
 end
 
+--- Reset a node to inactive status.
+-- Set the node and all of its descendants to status `inactive` and
+-- clear any data the node might have stored under its path.
+-- @param node The node whose descendants we are deactivating.
+-- @param path The path to `node` in the XBT.
+-- @param state The state of the XBT's evaluation.
+function xbt.reset_node (node, path, state)
+  xbt.deactivate_node(node, path, state)
+  xbt.set_result(node, path, state, xbt.inactive())
+end
 
 --- A table mapping function names to functions.
 -- Function and action nodes use this table to look up their `fun`
@@ -501,7 +513,8 @@ xbt.define_node_type("fun", {"fun", "args"}, function (node, path, state)
 --  `define_function_name`.
 xbt.define_node_type("action", {"fun", "args"}, function (node, path, state)
   local fun = xbt.lookup_function(node.fun)
-  local cost = node.args.cost or 0
+  local args = node.args
+  local cost = args and args.cost or 0
   return xbt.succeeded(cost, fun(node, path, state))
 end)
 
@@ -528,10 +541,10 @@ end)
 --  `define_function_name`.
 xbt.define_node_type("bool", {"fun", "args"}, function (node, path, state)
   local fun = xbt.lookup_function(node.fun)
-  local cost = node.args.cost or 0
+  local cost = node.args and node.args.cost or 0
   local result = fun(node, path, state)
   if result then
-    local value = node.args.value or 0
+    local value = node.args and node.args.value or 0
     return xbt.succeeded(cost, value)
   else
     return xbt.failed(cost)
@@ -543,7 +556,8 @@ local function tick_seq_node (node, path, state)
    -- Cost and value for this node
   local cost = 0
   local value = 0
-  for pos, child in pairs(node.children) do
+  local children = node.children or {}
+  for pos, child in pairs(children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
     -- Update the total accumulated cost/value
@@ -579,7 +593,8 @@ xbt.define_node_type("seq", {"children"}, tick_seq_node)
 
 local function tick_choice_node (node, path, state)
   local cost = 0
-  for pos,child in pairs(node.children) do
+  local children = node.children or {}
+  for pos,child in pairs(children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
     cost = cost + result.cost
@@ -610,15 +625,18 @@ local function tick_xchoice_node (node, path, state)
   local cost = 0
   local result = nil
   -- Don't reorder children whild the node is running.
+  local child_fun = xbt.lookup_function(node.child_fun)
   if not xbt.is_running(xbt.result(node, path, state)) then
-    node.children = node.child_fun(node, path, state)
+    node.children = child_fun(node, path, state)
   end
+  local update_fun = xbt.lookup_function(node.args.update_fun) or
+    function () end
   for pos,child in pairs(node.children) do
     local p = path:copy(pos)
     result = xbt.tick(child, p, state)
     cost = cost + result.cost
     if xbt.is_succeeded(result) then
-      node.update_fun(node, path, state, result)
+      update_fun(node, path, state, result)
       xbt.deactivate_node(node, path, state)
       return xbt.succeeded(cost, result.value)
     end
@@ -628,7 +646,7 @@ local function tick_xchoice_node (node, path, state)
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
   end
-  node.update_fun(node, path, state, result)
+  update_fun(node, path, state, result)
   xbt.deactivate_node(node, path, state)
   return xbt.failed(cost, "All children failed")
 end
@@ -648,21 +666,22 @@ end
 -- @return An external choice node.  This node is serializable if its
 --  children are.
 xbt.define_node_type("xchoice",
-  {"children", "child_fun", "update_fun", "data"},
+  {"children", "child_fun", "args"},
   tick_xchoice_node)
 
 --- Epsilon-greedy `child_fun` for `xchoice`.
 -- Sort the children of a node and with probability `node.epsilon`
 -- swap the first element of the result with another one.
 -- The function to generate the sorted list of children is taken
--- from `node.data.sorted_children`.
+-- from `node.args.sorted_children`.
 -- @param node The xchoice node.
 -- @param path Path that identifies the instance of the node
 -- @param state The current state of the evaluation.
 -- @return An epsilon-greedy result list of children.
 function xbt.epsilon_greedy_child_fun (node, path, state)
-  local children = node.data.sorted_children(node, path, state)
-  if #children >= 2 and math.random < node.epsilon then
+  local children = node.args.sorted_children(node, path, state)
+  local swap = math.random(1.0) < (node.epsilon or 0.1)
+  if #children >= 2 and swap then
     local temp = math.random(2, #children)
     children[1],children[temp] = children[temp],children[1]
   end
@@ -686,8 +705,8 @@ local function tick_negate (node, path, state)
   assert(node.child, "`Negate` node needs a child node.")
   local child_result = xbt.tick(node.child, path, state)
   if xbt.is_failed(child_result) then
-    local data = node.data
-    local value = data and data.value or 0
+    local args = node.args
+    local value = args and args.value or 0
     return xbt.succeeded(child_result.cost, value)
   elseif xbt.is_succeeded(child_result) then
     return xbt.failed(child_result.cost, "Child node succeeded.")
@@ -696,16 +715,16 @@ local function tick_negate (node, path, state)
   end
 end
 
-xbt.define_node_type("negate", {"child", "data"}, tick_negate)
+xbt.define_node_type("negate", {"child", "args"}, tick_negate)
 
 
 -- TODO: Provide a timeout
 local function tick_until (node, path, state)
   assert(node.pred, "`Until` node needs a predicate.")
   assert(node.child, "`Until` node needs a child node.")
-  local pred = xbt.lookup_function(node.data.pred)
+  local pred = xbt.lookup_function(node.pred)
   if pred(node, path, state) then
-    return xbt.succeeded(0, node.data.default_value)
+    return xbt.succeeded(0, (node.args.default_value or 0))
   end
   local result = xbt.tick(node.child, path, state)
   if pred(node, path, state) then
@@ -715,12 +734,12 @@ local function tick_until (node, path, state)
   end
 end
 
-xbt.define_node_type("until", {"pred", "child"}, tick_until)
+xbt.define_node_type("until", {"pred", "child", "args"}, tick_until)
 
 local function tick_when (node, path, state)
   assert(node.pred, "`When` node needs a predicate.")
   assert(node.child, "`When` node needs a child node.")
-  local pred = xbt.lookup_function(node.data.pred)
+  local pred = xbt.lookup_function(node.pred)
   if pred(node, path, state) then
     return xbt.tick(node.child, path, state) 
   else
