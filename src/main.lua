@@ -74,29 +74,27 @@ end
 -- Graph navigation using XBTs
 -- 
 
-local function print_yes_or_no (res)
-  print("  " .. (res and "Yes!" or "No!"))
+local function print_yes_or_no (prefix, res)
+  print(prefix .. " " .. (res and "Yes." or "No."))
 end
 
 local function is_carrying_victim (node, path, state)
-  print("Am I carrying a victim?")
   local res = state.carrying
-  print_yes_or_no(res)
+  print_yes_or_no("Am I carrying a victim?", res)
   return res
 end
 xbt.define_function_name("is_carrying_victim", is_carrying_victim)
 
 local function is_at_home_node (node, path, state)
-  print("Am I at a home node?")
   local cni = state.current_node_id
   if not cni then
-    print("  I am nowhere")
+    print("I am not at home, I am nowhere.")
     return false
   end
   local node = state.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "home"
-  print_yes_or_no(res)
+  print_yes_or_no("Am I at a home node?", res)
   return res
 end
 xbt.define_function_name("is_at_home_node", is_at_home_node)
@@ -109,24 +107,22 @@ local function drop_off_victim (node, path, state)
 end
 
 local function has_located_victim (node, path, state)
-  print("Have I located a victim?")
   local cni = state.current_node_id
   if not cni then
-    print("  I am nowhere!")
+    print("Cannot find a victim since I am nowhere!")
     return false
   end
   local node = state.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "victim"
-  print_yes_or_no(res)
+  print_yes_or_no("Have I located a victim?", res)
   return res
 end
 xbt.define_function_name("has_located_victim", has_located_victim)
 
 local function can_pick_up_victim (node, path, state)
-  print("Can I pick up the victim?")
   local res = not state.carrying
-  print_yes_or_no(res)
+  print_yes_or_no("Can I pick up the victim?", res)
   return res
 end
 xbt.define_function_name("can_pick_up_victim", can_pick_up_victim)
@@ -139,16 +135,28 @@ end
 xbt.define_function_name("pick_up_victim", pick_up_victim)
 
 local function pick_home_location (node, path, state)
-  print("New home location!", 1)
-  state.target_node_id = 1
+  -- TODO: This should actually check a list of home locations.
+  if state.target_node_id ~= 1 then
+    print("New home location " .. 1 .. "!")
+    state.target_node_id = 1
+  else
+    print("Keeping home location " .. state.target_node_id .. ".")
+  end
 end
 xbt.define_function_name("pick_home_location", pick_home_location)
 
 local function pick_victim_location (node, path, state)
   local vls = state.victim_locations
-  local loc = vls[math.random(#vls)]
-  print("New target location!", loc)
-  state.target_node_id = loc
+  local tni = state.target_node_id
+  -- TODO: Should check list of home locations
+  local change = not tni or tni == 1 or math.random(10) == 1
+  if not change then
+    print("Keeping taget location " .. tni .. ".")
+  else
+    local loc = vls[math.random(#vls)]
+    print("New target location " .. loc .. "!")
+    state.target_node_id = loc
+  end
 end
 xbt.define_function_name("pick_victim_location", pick_victim_location)
 
@@ -172,9 +180,9 @@ local function go_actions (node, path, state)
   if cni and tni then
     local next_node_id = state.best_moves[cni][tni]
     if next_node_id then
-      -- Move the best action to the front of the list of
-      -- actions.
-      print("Best action: move to " .. tni .. ", target is " .. next_node_id)
+      -- Move the best action to the front of the list of actions.
+      print("Best action: move to " .. tni .. ", next node is " .. 
+        next_node_id .. ".")
       for i = 1,#res do
         local a = res[i]
         if a.args.to == next_node_id then
