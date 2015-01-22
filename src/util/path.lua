@@ -25,6 +25,7 @@ path.meta = {__index={}}
 -- @param p2 Another path.
 -- @return `true` if `p1` and `p2` point to the same location in the
 --  tree, false otherwise.
+-- @function __eq
 function path.meta.__eq (p1, p2)
   if #p1 ~= #p2 then return false end
   for i,pos in ipairs(p1) do
@@ -36,6 +37,7 @@ end
 --- Convert a path to string
 -- @param p A path.
 -- @return A string representation of `p`
+-- @function __tostring
 function path.meta.__tostring (p)
   local res, sep = "[", ""
   for _,pos in ipairs(p) do
@@ -50,6 +52,7 @@ end
 -- @param p A path pointing to a node `n` in an XBT.
 -- @return The value of `p` modified to point to the first child of
 --  `n`.
+--  @function down
 function path.meta.__index.down (p)
   p[#p+1] = 1
   return p
@@ -59,6 +62,7 @@ end
 -- @param p A path pointing to a node `n` in an XBT.
 -- @return The value of `p` modified to point to the right sibling of
 --  `n`.
+--  @function right
 function path.meta.__index.right (p)
   assert(#p > 0, "The root node has no right sibling.")
   p[#p] = p[#p] + 1
@@ -68,6 +72,7 @@ end
 --- Move up one level in a tree.
 -- @param p A path pointing to a non-root node `n` of an XBT.
 -- @return The value of `p` modified to point to the parent of `n`.
+-- @function up
 function path.meta.__index.up (p)
   assert(#p > 0, "Cannot move above the root of a tree.")
   p[#p] = nil
@@ -81,6 +86,7 @@ end
 --  positive integers for a relative path.  No extension is added if
 --  `extension` is falsy.  Default is `nil`.
 -- @return A copy of the path `p`.
+-- @function copy
 function path.meta.__index.copy(p, extension)
   local function assert_position (pos)
     assert(pos >= 0, "Cannot add negative positions to a path.")
@@ -102,7 +108,17 @@ function path.meta.__index.copy(p, extension)
   return res
 end
 
-
+--- Return a path containing the first element of a path.
+-- When running the same XBT for multiple objects we use the first
+-- component of the path as object id, so that we have a forest of
+-- execution trees.
+-- @return A new path containing only the first element of the given
+--  path.
+-- @function object_id
+function path.meta.__index.object_id (p)
+  assert(#p > 0, "Object id only valid for non-empty paths.")
+  return path.new(p[1])
+end
 
 --- Check whether a value represents a path.
 -- @param p The value to be tested.

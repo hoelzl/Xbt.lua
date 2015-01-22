@@ -301,17 +301,19 @@ end
 graph.use_global_go_action = true
 
 xbt.define_function_name("go", function (node, path, state)
-    assert(state.current_node_id == node.args.from, 
+    local data = xbt.local_data(node, path:object_id(), state)
+    assert(data.current_node_id == node.args.from, 
       "Performing a transition from wrong start node.")
-    local from = state.current_node_id
+    local from = data.current_node_id
     local to = node.args.to
     local graph_node = state.graph.nodes[to]
     local typeinfo = graph_node.type == "node" and "" or graph_node.type
-    state.current_node_id = to
+    data.current_node_id = to
     local edge = state.graph.nodes[node.args.from].edges[node.args.to]
-    print_trace(">>> Moving from state " .. from .. " to " ..
-      to .. " (cost " .. edge.cost - edge.cost%1 .. "). \t"  ..
-      typeinfo)
+    print_trace(">>> R" .. path[1] .. ": Moving from state " ..
+      from .. " to " ..  to .. " (cost " .. edge.cost - edge.cost%1 ..
+      "). \t"  .. typeinfo)
+    io.flush()
     assert(edge, "No edge for go action!")
     return xbt.succeeded(edge.cost, 0)
   end) 
@@ -329,9 +331,10 @@ function graph.make_go_action (edge)
     action_name = go_action_name_prefix ..
       edge.from.id .. "_to_" .. target_node.id
     xbt.define_function_name(action_name, function (node, path, state)
-        assert(state.current_node_id == node.args.from, 
+        local data = xbt.local_data(node, path:object_id(), state)
+        assert(data.current_node_id == node.args.from, 
           "Performing a transition from wrong start node")
-        state.current_node_id = target_node.id
+        data.current_node_id = target_node.id
         return value
       end)
   end

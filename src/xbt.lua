@@ -200,7 +200,9 @@ end
 --- Store local data for a node instance.
 -- Save `data` in state so that it persists during ticks.  It can be
 -- read with `local_data` and is deleted by `deactivate_node`.
--- @param node The node for which we are storing data.
+-- @param node The node for which we are storing data.  Ignored by
+--  the body, so it can be `nil` if local data is stored before a
+--  node is available.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
 -- @param data The data we want to persist.  Any old data stored for
@@ -213,7 +215,8 @@ end
 -- Retreive data that was previously stored using `set_local_data` or
 -- return the default value if no previously stored value is
 -- available.
--- @param node The node for which we are retreiving data.
+-- @param node The node for which we are retreiving data.  Ignored by
+--  the body, so it can be `nil` if the node for path is not known.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
 -- @param default The value returned if no data is available.
@@ -392,9 +395,12 @@ end
 -- @param node The node whose descendants we are deactivating.
 -- @param path The path to `node` in the XBT.
 -- @param state The state of the XBT's evaluation.
-function xbt.deactivate_node (node, path, state)
+function xbt.deactivate_node (node, path, state, clear_data)
+  if clear_data == nil then clear_data = true end
   xbt.deactivate_descendants(node, path, state)
-  xbt.set_local_data(node, path, state, nil)
+  if clear_data then
+    xbt.set_local_data(node, path, state, nil)
+  end
 end
 
 --- Reset a node to inactive status.
@@ -403,8 +409,11 @@ end
 -- @param node The node whose descendants we are deactivating.
 -- @param path The path to `node` in the XBT.
 -- @param state The state of the XBT's evaluation.
-function xbt.reset_node (node, path, state)
-  xbt.deactivate_node(node, path, state)
+-- @param clear_data If true, the local data for the path is deleted,
+--  otherwise it is kept
+function xbt.reset_node (node, path, state, clear_data)
+  if clear_data == nil then clear_data = true end
+  xbt.deactivate_node(node, path, state, clear_data)
   xbt.set_result(node, path, state, xbt.inactive())
 end
 

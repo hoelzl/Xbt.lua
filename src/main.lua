@@ -9,6 +9,7 @@ local util = require("util")
 local xbt = require("xbt")
 local nodes = require("example.nodes")
 local graph = require("example.graph")
+local tablex = require("pl.tablex")
 
 local function navigate_graph ()
   print("Navigating graph...")
@@ -87,115 +88,132 @@ local function print_yes_or_no (prefix, res)
 end
 
 local function is_carrying_victim (node, path, state)
-  local res = state.carrying > 0
-  print_yes_or_no("Am I carrying a victim?", res)
+  local data = xbt.local_data(node, path:object_id(), state)
+  local res = data.carrying > 0
+  print_yes_or_no("R" .. path[1] ..
+    ": Am I carrying a victim?", res)
   return res
 end
 xbt.define_function_name("is_carrying_victim", is_carrying_victim)
 
 local function is_at_home_node (node, path, state)
-  local cni = state.current_node_id
+  local data = xbt.local_data(node, path:object_id(), state)
+  local cni = data.current_node_id
   if not cni then
-    print_trace("I am not at home, I am nowhere.")
+    print_trace("R" .. path[1] .. 
+      ": I am not at home, I am nowhere.")
     return false
   end
   local node = state.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "home"
-  print_yes_or_no("Am I at a home node?", res)
+  print_yes_or_no("R" .. path[1] ..": Am I at a home node?", res)
   return res
 end
 xbt.define_function_name("is_at_home_node", is_at_home_node)
 
 local function drop_off_victim (node, path, state)
-  print_trace("Dropping off victim!")
-  local value = state.cargo_value
-  state.carrying = 0
-  state.cargo_value = 0
+  print("R" .. path[1] .. ": Dropping off victim!")
+  local data = xbt.local_data(node, path:object_id(), state)
+  local value = data.cargo_value
+  data.carrying = 0
+  data.cargo_value = 0
   return xbt.succeeded(1, value)
 end
 
 local function has_located_victim (node, path, state)
-  local cni = state.current_node_id
+  local data = xbt.local_data(node, path:object_id(), state)
+  local cni = data.current_node_id
   if not cni then
-    print_trace("Cannot find a victim since I am nowhere!")
+    print_trace("R" .. path[1] .. 
+      ": Cannot find a victim since I am nowhere!")
     return false
   end
   local node = state.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "victim"
-  print_yes_or_no("Have I located a victim?", res)
+  print_yes_or_no("R" .. path[1] .. ": " ..
+    "Have I located a victim?", res)
   return res
 end
 xbt.define_function_name("has_located_victim", has_located_victim)
 
 local function can_pick_up_victim (node, path, state)
-  local res = state.carrying == 0
-  print_yes_or_no("Can I pick up the victim?", res)
+  local data = xbt.local_data(node, path:object_id(), state)
+  local res = data.carrying == 0
+  print_yes_or_no("R" .. path[1] ..
+    ": Can I pick up the victim?", res)
   return res
 end
 xbt.define_function_name("can_pick_up_victim", can_pick_up_victim)
 
 local function pick_up_victim (node, path, state)
-  print_trace("Picking up the victim!")
-  local graph_node = state.graph.nodes[state.current_node_id]
-  state.carrying = state.carrying + 1
-  state.cargo_value = state.cargo_value + (graph_node.value or 1000)
+  print("R" .. path[1] .. ": Picking up the victim!")
+  local data = xbt.local_data(node, path:object_id(), state)
+  local graph_node = state.graph.nodes[data.current_node_id]
+  data.carrying = data.carrying + 1
+  data.cargo_value = data.cargo_value + (graph_node.value or 1000)
   return xbt.succeeded(10, 0)
 end
 xbt.define_function_name("pick_up_victim", pick_up_victim)
 
 local function pick_home_location (node, path, state)
   -- TODO: This should actually check a list of home locations.
-  if state.target_node_id ~= 1 then
-    print_trace("New home location " .. 1 .. "!")
-    state.target_node_id = 1
+  local data = xbt.local_data(node, path:object_id(), state)
+  if data.target_node_id ~= 1 then
+    print_trace("R" .. path[1] .. 
+      ": New home location " .. 1 .. "!")
+    data.target_node_id = 1
   else
-    print_trace("Keeping home location " .. state.target_node_id .. ".")
+    print_trace("R" .. path[1] .. 
+      ": Keeping home location " .. data.target_node_id .. ".")
   end
 end
 xbt.define_function_name("pick_home_location", pick_home_location)
 
 local function pick_victim_location (node, path, state)
+  local data = xbt.local_data(node, path:object_id(), state)
   local vls = state.victim_locations
-  local tni = state.target_node_id
+  local tni = data.target_node_id
   -- TODO: Should check list of home locations
   local change = not tni or tni == 1 or math.random(10) == 1
   if not change then
-    print_trace("Keeping taget location " .. tni .. ".")
+    print_trace("R" .. path[1] .. ": Keeping taget location " .. tni .. ".")
   else
     local loc = vls[math.random(#vls)]
-    print_trace("New target location " .. loc .. "!")
-    state.target_node_id = loc
+    print_trace("R" .. path[1] .. ": New target location " .. loc .. "!")
+    data.target_node_id = loc
   end
 end
 xbt.define_function_name("pick_victim_location", pick_victim_location)
 
 local function drop_off_victim (node, path, state)
-  local value = state.cargo_value
-  print_trace("Dropping off the victim!  Value obtained: " .. value)
-  state.carrying = 0
-  state.cargo_value = 0
-  state.target_node_id = nil
+  local data = xbt.local_data(node, path:object_id(), state)
+  local value = data.cargo_value
+  print_trace("R" .. path[1] .. ": Dropping off the victim!  Value obtained: " .. value)
+  data.carrying = 0
+  data.cargo_value = 0
+  data.target_node_id = nil
   return xbt.succeeded(0, value)
 end
 xbt.define_function_name("drop_off_victim", drop_off_victim)
 
 local function go_actions (node, path, state)
-  if not state.actions or not state.current_node_id then
+  local data = xbt.local_data(node, path:object_id(), state)
+  if not state.actions or not data.current_node_id then
     return {}
   end
   -- TODO: These are unsorted, as yet.
-  local cni = state.current_node_id
-  local tni = state.target_node_id
+  local cni = data.current_node_id
+  local tni = data.target_node_id
   local res = state.actions[cni]
   -- We might not have a best action if we cannot reach the chosen victim
   if cni and tni then
     local next_node_id = state.best_moves[cni][tni]
     if next_node_id then
       -- Move the best action to the front of the list of actions.
-      print_trace("Best action: move to " .. tni .. ", next node is " .. 
-        next_node_id .. ".")
+      print_trace("R" .. path[1] .. ": Best action: move to " ..
+        tni .. ", next node is " ..  next_node_id .. ".")
       for i = 1,#res do
         local a = res[i]
         if a.args.to == next_node_id then
@@ -226,34 +244,65 @@ local robot_xbt = xbt.choice({
            move_towards_chosen_location})
 })
 
-local function graph_search ()
-  print("Robot rescue scenario...")
-  local state = xbt.make_state()
-  local path = util.path.new()
-  local g = graph.generate_graph(25, 100, graph.make_short_edge_generator(1.5))
+local function assign_node_types (g, num_home_nodes, victim_nodes)
+  for i = 1,num_home_nodes do
+    g.nodes[i].type = "home"
+  end
+  local i = num_home_nodes+1
+  for _,value in ipairs(victim_nodes) do
+    g.nodes[i].type = "victim"
+    g.nodes[i].value = value
+    i = i + 1 
+  end
+end
+
+local function initialize_graph
+    (state, num_nodes, num_home_nodes, victim_nodes, diameter)
+  local g = graph.generate_graph(num_nodes, diameter, graph.make_short_edge_generator(1.5))
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
-  g.nodes[1].type = "home"
-  -- Assign values to victim nodes.  This might change for integration with Hades.
-  g.nodes[2].type = "victim"; g.nodes[2].value = 10000
-  g.nodes[3].type = "victim"; g.nodes[3].value = 5000
-  g.nodes[4].type = "victim"; g.nodes[4].value = 8000
+  assign_node_types(g, num_home_nodes, victim_nodes)
   state.current_node_id = 1
   state.victim_locations = {2, 3} -- location 4 missing deliberately
   local actions,to_nodes = graph.make_graph_action_tables(g)
   state.actions = actions
   state.to_nodes = to_nodes
   state.movement_costs, state.best_moves = graph.floyd(g)
-  -- The number of victims the robot is currently carrying
-  state.carrying = 0
-  state.cargo_value = 0
+end  
+
+local function initialize_robots (state, num_robots)
+  -- We use a forest of paths to identify robots; all paths of robot i start
+  -- at node [i]
+  local paths = {}
+  state.paths = paths
+  state.num_robots = num_robots
+  for i = 1,num_robots do
+    local path = util.path.new(i)
+    paths[i] = path
+    local data = {current_node_id = 1, carrying = 0, cargo_value = 0}
+    xbt.set_local_data(nil, path, state, data)
+  end
+end
+
+local function graph_search (num_robots, num_nodes, num_steps)
+  num_robots = num_robots or 2
+  num_nodes = num_nodes or 25
+  num_steps = num_steps or 200
+  print("Robot rescue scenario (" .. num_steps .. " steps)...")
+  local state = xbt.make_state()
+  initialize_graph(state, num_nodes, 1, {10000, 5000, 8000}, 10000)
+  initialize_robots(state, num_robots)
   local total_value = 0
   local total_cost = 0
-  for i = 1,50 do
-    local result = xbt.tick(robot_xbt, path, state)
-    total_value = total_value + result.value
-    total_cost = total_cost + result.cost
-    xbt.reset_node(robot_xbt, path, state)
+  for i = 1,num_steps do
+    for r = 1,num_robots do
+      local path = state.paths[r]
+      local result = xbt.tick(robot_xbt, path:copy(1), state)
+      total_value = total_value + result.value
+      total_cost = total_cost + result.cost
+      -- Reset the node, but don't clear its data
+      xbt.reset_node(robot_xbt, path, state, false)
+    end
   end
   print("Total value = " .. total_value .. 
     ", total cost = " .. total_cost)
@@ -272,7 +321,7 @@ local function main()
   tick_negate()
   --]]--
   math.randomseed(os.time())
-  graph_search()
+  graph_search(100, 1000, 10000)
   print("Done!")
 end
 
