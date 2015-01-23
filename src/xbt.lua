@@ -731,7 +731,7 @@ xbt.define_node_type("xchoice",
 -- @return An epsilon-greedy result list of children.
 function xbt.epsilon_greedy_child_fun (node, path, state)
   local children = node.args.sorted_children(node, path, state)
-  local r = math.random(100) / 100.0
+  local r = util.rng:sample()
   local swap = r < (state.epsilon or node.args.epsilon or 0.25)
   if #children >= 2 and swap then
     -- print("Performing epsilon transition.")

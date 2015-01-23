@@ -195,7 +195,8 @@ end
 function graph.copy (g)
   local nodes, edges = {}, {}
   for i,n in ipairs(g.nodes) do
-    nodes[i] = {id=i, x=n.x, y=n.y, type=n.type, edges = {}}
+    nodes[i] = {id=i, x=n.x, y=n.y, type=n.type, edges = {},
+      value=n.value}
   end
   for i,e in ipairs(g.edges) do
     local from_id, to_id = e.from.id, e.to.id

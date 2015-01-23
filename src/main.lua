@@ -10,6 +10,8 @@ local xbt = require("xbt")
 local nodes = require("example.nodes")
 local graph = require("example.graph")
 local tablex = require("pl.tablex")
+local math = require("sci.math")
+local prng = require("sci.prng")
 
 local function navigate_graph ()
   print("Navigating graph...")
@@ -206,11 +208,12 @@ local function pick_victim_location (node, path, state)
   local vls = data.victim_locations
   local tni = data.target_node_id
   -- TODO: Should check list of home locations
-  local change = not tni or tni == 1 or math.random(10) == 1
+  local change = not tni or tni == 1 or util.rng:sample() < 0.1
   if not change then
     print_trace("R" .. path[1] .. ": Keeping taget location " .. tni .. ".")
   else
-    local loc = vls[math.random(#vls)]
+    local r = math.floor(util.rng:sample() * #vls) + 1
+    local loc = vls[r]
     print_trace("R" .. path[1] .. ": New target location " .. loc .. "!")
     data.target_node_id = loc
   end
@@ -325,19 +328,12 @@ local function assign_node_types (g, num_home_nodes, victim_nodes)
   return home_locations, victim_locations
 end
 
-local function initialize_graph
-    (state, num_nodes, num_home_nodes, victim_nodes, diameter)
-  local g = graph.generate_graph(num_nodes, diameter, graph.make_short_edge_generator(1.5))
+local function initialize_graph (state, scenario)
+  local g = graph.generate_graph(scenario.num_nodes, 
+    scenario.diameter, graph.make_short_edge_generator(1.5))
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
-  if type(victim_nodes) == "number" then
-    local nv = victim_nodes
-    victim_nodes = {}
-    for i=1,nv do
-      victim_nodes[i] = 10000
-    end
-  end
-  local hls, vls = assign_node_types(g, num_home_nodes, victim_nodes)
+  local hls, vls = assign_node_types(g, scenario.num_home_nodes, scenario.victim_nodes)
   state.home_locations = hls
   state.victim_locations = vls
   local actions,to_nodes = graph.make_graph_action_tables(g)
@@ -346,9 +342,9 @@ local function initialize_graph
   state.movement_costs, state.best_moves = graph.floyd(g)
 end  
 
-local function initialize_teachers (state, error_funs)
+local function initialize_teachers (state, scenario)
   local teachers = {}
-  for i,error_fun in ipairs(error_funs) do
+  for i,error_fun in ipairs(scenario.teachers) do
     local g = graph.copy_badly(state.graph, error_fun)
     local movement_costs, best_moves = graph.floyd(g)
     local vls = {}
@@ -369,13 +365,13 @@ local function initialize_teachers (state, error_funs)
 end
 
 -- This requires the teachers to be already initialized!
-local function initialize_robots (state, num_robots)
+local function initialize_robots (state, scenario)
   -- We use a forest of paths to identify robots; all paths of robot i start
   -- at node [i]
   local paths = {}
   state.paths = paths
-  state.num_robots = num_robots
-  for i = 1,num_robots do
+  state.num_robots = scenario.num_robots
+  for i = 1,state.num_robots do
     local path = util.path.new(i)
     paths[i] = path
     local data = {current_node_id = 1,
@@ -387,57 +383,103 @@ local function initialize_robots (state, num_robots)
   end
 end
 
-local function start_episode (state, delta)
+local function print_teacher_info (episode_teacher)
+  print("    Teacher " .. episode_teacher.id
+    .. " \tsamples: \t" .. episode_teacher.nsamples
+    .. " \tbad choices: \t" .. episode_teacher.different_choices
+    .. " \tdifference: \t" .. math.round(episode_teacher.absolute_difference))
+end
+
+local function print_episode (episode)
+  print("------------------------------------------------------------------------------------")
+  print("Episode " .. episode.id
+    .. " \tvalue:   \t" .. math.round(episode.value) 
+    .. " \tcost:    \t" .. math.round(episode.cost)
+    .. " \tepsilon: \t" .. (math.round(episode.state.epsilon * 100)) / 100)
+  for _,et in ipairs(episode.teachers) do
+    print_teacher_info(et)
+  end
+end
+
+local function print_episodes (episodes)
+  for i,e in ipairs(episodes) do
+    print_episode(e)
+  end
+  print("-------------------------------------------------------------------------------------")
+end
+
+local function start_episode (state, scenario, episode)
   print_trace("========== Starting new episode ==========")
   local teachers = state.teachers
+  episode.teachers = {}
   for i,t in ipairs(teachers) do
     local g = t.graph
     graph.update_edge_costs(g, t.samples)
     t.movement_costs, t.best_moves = graph.floyd(g)
-    print("Updated T" .. i .. " with "
-      .. #t.samples .. " samples.  ("
-      .. graph.absolute_difference(state.movement_costs, t.movement_costs)
-      .. ", "
-      .. graph.different_choices(state.best_moves, t.best_moves)
-      .. ").")
+    local et = {id=t.id}
+    et.absolute_difference = 
+      graph.absolute_difference(state.movement_costs, t.movement_costs)
+    et.different_choices =
+      graph.different_choices(state.best_moves, t.best_moves)
+    et.nsamples = #t.samples 
     t.samples = {}
+    episode.teachers[i] = et
   end
-  state.epsilon = state.epsilon * delta
+  state.epsilon = state.epsilon * scenario.delta
 end
 
-local function rescue_scenario (num_robots, num_nodes, num_steps,
-  num_home_nodes, victim_nodes, diameter, epsilon, delta)
-  num_robots = num_robots or 25
-  num_nodes = num_nodes or 100
-  num_steps = num_steps or 2000
+local function make_scenario (
+    num_robots, num_nodes, num_steps, num_home_nodes,
+    victim_nodes, diameter, teachers, epsilon, delta)
+  num_robots = num_robots or 100
+  num_nodes = num_nodes or 1000
+  num_steps = num_steps or 50000
   num_home_nodes = num_home_nodes or 1
-  victim_nodes = victim_nodes or num_nodes / 10
-  diameter = diameter or 10000
+  victim_nodes = victim_nodes or num_nodes / 20
+  if type(victim_nodes) == "number" then
+    local nv = victim_nodes
+    victim_nodes = {}
+    for i=1,nv do
+      victim_nodes[i] = 10000
+    end
+  end
+  diameter = diameter or 500
+  teachers = teachers or {1000}
   epsilon = epsilon or 0.8
-  delta = delta or 0.999
-  print("Robot rescue scenario (" .. num_steps .. " steps)...")
-  local state = xbt.make_state({epsilon=epsilon})
-  initialize_graph(state, num_nodes, num_home_nodes, victim_nodes, diameter)
-  initialize_teachers(state, {1000})
-  initialize_robots(state, num_robots)
+  delta = delta or 0.995
+  
+  return {
+    num_robots=num_robots, num_nodes=num_nodes,
+    num_steps=num_steps, num_home_nodes=num_home_nodes,
+    victim_nodes=victim_nodes,
+    diameter=diameter,
+    teachers = teachers, 
+    epsilon=epsilon, delta=delta,
+    random_seed=tostring(util.rng)
+  }  
+end
+
+local function run_simulation (state, scenario, episodes)
+  local num_steps = scenario.num_steps
   local episode_steps = num_steps / (num_steps < 1000 and 10 or 100)
   local episode
-  local episodes = {}
   local total_value = 0
   local total_cost = 0
   for i = 1,num_steps do
+    if i % 50 == 0 then io.write(".") end
+    if i % (50*72) == 0 then print() end
     if i % episode_steps == 1 then
-      episode = {value=0, cost=0, 
+      episode = {id=i, value=0, cost=0, 
         state={movement_costs=state.movement_costs, 
                best_moves=state.best_moves,
                epsilon=state.epsilon},
         teachers={}}
       -- TODO: Fill in teacher data
       episodes[#episodes+1] = episode
-      start_episode(state, delta)
+      start_episode(state, scenario, episode)
       -- delta = delta * delta
     end
-    for r = 1,num_robots do
+    for r = 1,scenario.num_robots do
       local path = state.paths[r]
       local result = xbt.tick(robot_xbt, path:copy(1), state)
       total_value = total_value + result.value
@@ -448,11 +490,28 @@ local function rescue_scenario (num_robots, num_nodes, num_steps,
       xbt.reset_node(robot_xbt, path, state, false)
     end
   end
-  for i,e in ipairs(episodes) do
-    print("Episode value = " .. e.value .. ",\t episode cost = " .. e.cost
-      .. " (" .. e.state.epsilon .. ")")
+  print()
+  return total_cost, total_value
+end
+
+local function rescue_scenario (scenario)
+  scenario = scenario or make_scenario()
+  print("Robot rescue scenario (" .. scenario.num_steps .. " steps)...")
+  if (scenario.random_seed) then
+    util.rng = prng.restore(scenario.random_seed)
+  else
+    scenario.random_seed = tostring(util.rng)
   end
-  print("Total value   = " .. total_value .. ",\t total cost   = " .. total_cost)
+  local state = xbt.make_state({epsilon=scenario.epsilon})
+  initialize_graph(state, scenario)
+  initialize_teachers(state, scenario)
+  initialize_robots(state, scenario)
+  local episodes = {}
+  local total_cost, total_value = run_simulation(state, scenario, episodes)
+  print_episodes(episodes)
+  print("Total value   = " .. math.round(total_value)
+    .. ",\t total cost   = " .. math.round(total_cost))
+  return episodes, scenario
 end
 
 
@@ -470,8 +529,6 @@ local function main()
   graph_update_edge_cost()
   graph_update_edge_costs()
   --]]--
-  math.randomseed(os.time())
-  -- rescue_scenario(10, 7500, 10)
   rescue_scenario()
   print("Done!")
 end
