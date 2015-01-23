@@ -393,16 +393,20 @@ graph.use_global_go_action = true
 
 xbt.define_function_name("go", function (node, path, state)
     local data = xbt.local_data(node, path:object_id(), state)
+    local graph = --[[ data.graph or --]] state.graph
     --[[--
     assert(data.current_node_id == node.args.from, 
       "Performing a transition from wrong start node.")
     --]]--
     local from = data.current_node_id
     local to = node.args.to
-    local graph_node = state.graph.nodes[to]
+    local graph_node = graph.nodes[to]
     local typeinfo = graph_node.type == "node" and "" or graph_node.type
     data.current_node_id = to
-    local edge = state.graph.nodes[node.args.from].edges[node.args.to]
+    local edge = graph.nodes[node.args.from].edges[node.args.to]
+    if not edge then
+      return xbt.failed(0)
+    end
     --[[--
     print_trace(">>> R" .. path[1] .. ": Moving from state " ..
       from .. " to " ..  to .. " (cost " .. edge.cost - edge.cost%1 ..

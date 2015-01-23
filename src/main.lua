@@ -297,7 +297,7 @@ end
 
 local move_towards_chosen_location =
   xbt.xchoice({}, xbt.epsilon_greedy_child_fun,
-              {sorted_children = go_actions, epsilon=0.5})
+              {sorted_children = go_actions})
 
 local robot_xbt = xbt.choice({
   xbt.when("is_at_home_node",
@@ -331,7 +331,7 @@ end
 
 local function initialize_graph (state, scenario)
   local g = graph.generate_graph(scenario.num_nodes, 
-    scenario.diameter, graph.make_short_edge_generator(1.5))
+    scenario.diameter, graph.make_short_edge_generator(2.0))  -- was 1.5
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
   local hls, vls = assign_node_types(g, scenario.num_home_nodes, scenario.victim_nodes)
@@ -426,14 +426,20 @@ local function start_episode (state, scenario, episode)
     t.samples = {}
     episode.teachers[i] = et
   end
-  state.epsilon = state.epsilon * scenario.delta
+  local eps = state.epsilon
+  if eps > state.epsilon_min then
+    state.epsilon = eps * eps * eps
+  else
+    state.epsilon = state.epsilon_min
+  end
 end
 
 local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
-    victim_nodes, diameter, teachers, epsilon, delta)
-  num_robots = num_robots or 25
-  num_nodes = num_nodes or 200
+    victim_nodes, diameter, teachers, epsilon, epsilon_min,
+    damage)
+  num_robots = num_robots or 1 -- 25
+  num_nodes = num_nodes or 100
   num_steps = num_steps or 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = victim_nodes or num_nodes / 20
@@ -445,9 +451,10 @@ local function make_scenario (
     end
   end
   diameter = diameter or 500
-  teachers = teachers or {10}
-  epsilon = epsilon or 0.8
-  delta = delta or 0.998
+  teachers = teachers or {20}
+  epsilon = epsilon or 0.99999999
+  epsilon_min = epsilon_min or 0.25
+  damage = damage or false
   
   return {
     num_robots=num_robots, num_nodes=num_nodes,
@@ -455,10 +462,26 @@ local function make_scenario (
     victim_nodes=victim_nodes,
     diameter=diameter,
     teachers = teachers, 
-    epsilon=epsilon, delta=delta,
+    epsilon=epsilon, epsilon_min=epsilon_min,
+    damage=damage,
     random_seed=tostring(util.rng)
   }  
 end
+
+local default_scenario
+  = make_scenario()
+local perfect_info_scenario
+  = make_scenario(nil, nil, nil, nil, nil, nil, {function (c) return c end}, 0, 0)
+local damage_scenario
+  = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, true)
+local perfect_info_damage_scenario
+  = make_scenario(nil, nil, nil, nil, nil, nil, {function (c) return c end}, 0, 0, true)
+
+local current_random_seed = tostring(util.rng)
+default_scenario.random_seed = current_random_seed
+perfect_info_scenario.random_seed = current_random_seed
+damage_scenario.random_seed = current_random_seed
+perfect_info_damage_scenario.random_seed = current_random_seed
 
 local function run_simulation (state, scenario, episodes)
   local num_steps = scenario.num_steps
@@ -478,7 +501,18 @@ local function run_simulation (state, scenario, episodes)
       -- TODO: Fill in teacher data
       episodes[#episodes+1] = episode
       start_episode(state, scenario, episode)
-      -- delta = delta * delta
+    end
+    if scenario.damage and i == math.floor(num_steps / 4) then
+      print("Damaging graph!")
+      local g = graph.copy_badly(state.graph, 10)
+      g.edges = {}
+      for _,n in ipairs(g.nodes) do
+        n.edges = {}
+      end
+      g.edges = graph.make_short_edge_generator(1.1)(g.nodes)
+      state.graph = g
+      state.movement_costs, state.best_moves = graph.floyd(g)
+      state.actions,state.to_nodes = graph.make_graph_action_tables(g)
     end
     for r = 1,scenario.num_robots do
       local path = state.paths[r]
@@ -503,7 +537,8 @@ local function rescue_scenario (scenario)
   else
     scenario.random_seed = tostring(util.rng)
   end
-  local state = xbt.make_state({epsilon=scenario.epsilon})
+  print("Random seed: ", tostring(util.rng))
+  local state = xbt.make_state({epsilon=scenario.epsilon, epsilon_min=scenario.epsilon_min})
   initialize_graph(state, scenario)
   initialize_teachers(state, scenario)
   initialize_robots(state, scenario)
@@ -530,7 +565,15 @@ local function main()
   graph_update_edge_cost()
   graph_update_edge_costs()
   --]]--
-  rescue_scenario()
+  -- rescue_scenario()
+--  print("Perfect info:")
+--  rescue_scenario(perfect_info_scenario)
+--  print("Default:")
+--  rescue_scenario(default_scenario)
+--  print("Perfect info with damage:")
+  rescue_scenario(perfect_info_damage_scenario)
+--  print("Default with damage:")
+  rescue_scenario(damage_scenario)
   print("Done!")
 end
 

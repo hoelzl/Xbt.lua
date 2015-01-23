@@ -1,5 +1,6 @@
 *~
 /doc/
 /TODO.md
-/src/output.log
+/src/*.log
+/src/*.out
 
