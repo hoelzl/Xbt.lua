@@ -432,9 +432,9 @@ end
 local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, delta)
-  num_robots = num_robots or 100
-  num_nodes = num_nodes or 1000
-  num_steps = num_steps or 10000
+  num_robots = num_robots or 25
+  num_nodes = num_nodes or 200
+  num_steps = num_steps or 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = victim_nodes or num_nodes / 20
   if type(victim_nodes) == "number" then
@@ -445,9 +445,9 @@ local function make_scenario (
     end
   end
   diameter = diameter or 500
-  teachers = teachers or {1000}
+  teachers = teachers or {10}
   epsilon = epsilon or 0.8
-  delta = delta or 0.995
+  delta = delta or 0.998
   
   return {
     num_robots=num_robots, num_nodes=num_nodes,
