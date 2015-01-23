@@ -3,7 +3,10 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
+local util = require("util")
 local xbt = require("xbt")
+-- local tablex = require("pl.tablex")
+local dist = require("sci.dist")
 local graph = {}
 
 graph.print_trace_info = true
@@ -81,6 +84,15 @@ function graph.maxmin_distance(nodes)
   return dist,node_index
 end
 
+
+--- When updating a graph we may sometimes want to bias the results
+-- towards the initial value, so that the first few samples don't
+-- have an undue effect on the graph if the environment is very
+-- noisy.  Therefore we can adjust how often the update algorithm
+-- thinks that it has already seen the initial cost of the edge before
+-- the first update.
+graph.initial_edge_occurrences = 1
+
 --- Generate all possible edges between members of nodes.
 -- When passed as edge generator to `generate_graph` this will build
 -- the complete graph for the generated nodes.
@@ -92,10 +104,14 @@ function graph.generate_all_edges (nodes)
     for j = i+1,#nodes do
       local n1,n2 = nodes[i], nodes[j]
       local dist = graph.node_dist(n1, n2)
-      local edge1 = {from=n1, to=n2, type="edge", dist=dist, cost=dist}
+      local edge1 = {from=n1, to=n2, type="edge",
+        dist=dist, cost=dist,
+        occurrences=graph.initial_edge_occurrences}
       edges[#edges+1] = edge1
       n1.edges[j] = edge1
-      local edge2 = {from=n2, to=n1, type="edge", dist=dist, cost=dist}
+      local edge2 = {from=n2, to=n1, type="edge",
+        dist=dist, cost=dist,
+        occurrences=graph.initial_edge_occurrences}
       edges[#edges+1] = edge2
       n2.edges[i] = edge2
     end
@@ -123,10 +139,14 @@ function graph.make_short_edge_generator (slack)
         local n1,n2 = nodes[i], nodes[j]
         local dist = graph.node_dist(n1, n2)
         if dist <= maxmin_dist * slack then
-          local edge1 = {from=n1, to=n2, type="edge", dist=dist, cost=dist}
+          local edge1 = {from=n1, to=n2, type="edge",
+            dist=dist, cost=dist,
+            occurrences=graph.initial_edge_occurrences}
           edges[#edges+1] = edge1
           n1.edges[j] = edge1
-          local edge2 = {from=n2, to=n1, type="edge", dist=dist, cost=dist}
+          local edge2 = {from=n2, to=n1, type="edge",
+            dist=dist, cost=dist,
+            occurrences=graph.initial_edge_occurrences}
           edges[#edges+1] = edge2
           n2.edges[i] = edge2
         end
@@ -160,11 +180,51 @@ function graph.generate_graph (number_of_nodes, size, edge_generator)
   if type(size) == "number" then size={x=size,y=size} end
   local nodes = {}
   for i = 1,number_of_nodes do
-    local x,y = math.random(size.x), math.random(size.y)
+    local x,y = util.rng:sample() * size.x, util.rng:sample() * size.y
     nodes[#nodes+1] = {id=i, x=x, y=y, type="node", edges={}}
   end
   local edges = edge_generator(nodes)
   return {nodes=nodes, edges=edges}
+end
+
+--- Copy a graph.
+-- This function copies a graph, taking care of the cycles appearing
+-- in the graph structure.  It copys _only_ the default attributes
+-- of a graph and ignores any attributes stored by the user.
+function graph.copy (g)
+  local nodes, edges = {}, {}
+  for i,n in ipairs(g.nodes) do
+    nodes[i] = {id=i, x=n.x, y=n.y, type=n.type, edges = {}}
+  end
+  for i,e in ipairs(g.edges) do
+    local from_id, to_id = e.from.id, e.to.id
+    local new_from, new_to = nodes[from_id], nodes[to_id]
+    local new_edge = {from=new_from, to=new_to,
+      type=e.type, dist=e.dist, cost=e.cost,
+      occurrences=e.occurrences}
+    edges[i] = new_edge
+    new_from.edges[to_id] = new_edge
+  end
+  return {nodes=nodes, edges=edges}
+end
+
+--- Copy a graph, introducing errors in the edge costs.
+-- @param g The graph to copy.
+-- @param error_fun A function receiving the cost of an edge in `g` as
+--  argument and returning the cost for the copy of the edge.
+function graph.copy_badly (g, error_fun)
+  if not error_fun then error_fun = graph.diameter(g.nodes) / 2 end
+  if type(error_fun) == "number" then
+    local sd = dist.normal(0, error_fun)
+    error_fun = function (cost)
+      return cost + sd:sample(util.rng)
+    end
+  end
+  local res = graph.copy(g)
+  for _,e in ipairs(res.edges) do
+    e.cost = error_fun(e.cost)
+  end
+  return res
 end
 
 --- All nodes reachable via an outgoing edge.
@@ -373,6 +433,18 @@ function graph.make_graph_action_tables (g)
     actions[id], to_nodes[id] = graph.make_node_go_actions(node)
   end
   return actions, to_nodes
+end
+
+--- Update the cost of an edge based on a sample value.
+function graph.update_edge_cost (g, sample)
+  local from_id, to_id = sample.from, sample.to
+  local from_node = g.nodes[from_id]
+  local edge = from_node.edges[to_id]
+  local old_cost, occ = edge.cost, edge.occurrences
+  -- Update the edge cost to the average of all occurrences.  Note
+  -- that we can use the `initial_edge_occurrences` parameter to
+  -- influence how much the initial estimate is favored initially.
+  edge.cost = old_cost + 1/(occ+1) * (sample.cost - old_cost) 
 end
 
 return graph

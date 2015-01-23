@@ -71,6 +71,30 @@ local function tick_negate ()
   end
 end
 
+local function graph_copy ()
+  local g = graph.generate_graph(10, 10, graph.make_short_edge_generator(1.5))
+  local gc = graph.copy(g)
+  local gcb1 = graph.copy_badly(g, 1)
+  local gcb2 = graph.copy_badly(g)
+  for i=1,#g.edges do
+    print("Edge " .. i .. ": \t"
+      .. g.edges[i].cost .. ", \t" .. gc.edges[i].cost .. ", \t"
+      .. gcb1.edges[i].cost .. ", \t" .. gcb2.edges[i].cost)
+  end
+end
+
+local function graph_update_edge_cost ()
+  local g = graph.generate_graph(10, 10, graph.generate_all_edges)
+  local gc = graph.copy_badly(g, 50)
+  local sample = {from=1, to=2, cost=g.nodes[1].edges[2].cost}
+  for i=1,20 do
+    print("Edge " .. i .. ": \t"
+      .. g.edges[1].cost .. ", \t" .. gc.edges[1].cost)
+    graph.update_edge_cost(gc, sample)
+  end
+  
+end
+
 ----------------------------------------------------------------------
 -- Graph navigation using XBTs
 -- 
@@ -206,7 +230,7 @@ local function go_actions (node, path, state)
   -- TODO: These are unsorted, as yet.
   local cni = data.current_node_id
   local tni = data.target_node_id
-  local res = state.actions[cni]
+  local res = tablex.deepcopy(state.actions[cni])
   -- We might not have a best action if we cannot reach the chosen victim
   if cni and tni then
     local next_node_id = state.best_moves[cni][tni]
@@ -284,13 +308,24 @@ local function initialize_robots (state, num_robots)
   end
 end
 
-local function graph_search (num_robots, num_nodes, num_steps)
+local function rescue_scenario (num_robots, num_nodes, num_steps,
+  num_home_nodes, victim_nodes, diameter)
   num_robots = num_robots or 2
   num_nodes = num_nodes or 25
   num_steps = num_steps or 200
+  num_home_nodes = num_home_nodes or 1
+  victim_nodes = victim_nodes or {10000, 5000, 8000}
+  if type(victim_nodes) == "number" then
+    local nv = victim_nodes
+    victim_nodes = {}
+    for i=1,nv do
+      victim_nodes[i] = 10000
+    end
+  end
+  diameter = diameter or 10000
   print("Robot rescue scenario (" .. num_steps .. " steps)...")
   local state = xbt.make_state()
-  initialize_graph(state, num_nodes, 1, {10000, 5000, 8000}, 10000)
+  initialize_graph(state, num_nodes, num_home_nodes, victim_nodes, diameter)
   initialize_robots(state, num_robots)
   local total_value = 0
   local total_cost = 0
@@ -319,9 +354,12 @@ local function main()
   search()
   tick_suppress_failure()
   tick_negate()
+  graph_copy()
+  graph_update_edge_cost()
   --]]--
   math.randomseed(os.time())
-  graph_search(100, 1000, 10000)
+  -- rescue_scenario(100, 1000, 1000)
+  rescue_scenario()
   print("Done!")
 end
 

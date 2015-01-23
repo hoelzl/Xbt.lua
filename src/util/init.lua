@@ -6,6 +6,8 @@
 local util = {}
 local path = require("util.path")
 util.path = path
+local prng = require("sci.prng")
+util.rng = prng.std()
 
 --- An implementation of version 4 UUIDs.
 -- @return A string in UUID V4 format.
