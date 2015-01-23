@@ -2,6 +2,7 @@
 -- @copyright © 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
+-- @module xbt
 
 -- See the [readme file](README.md) for documentation (well, not yet).
 
@@ -400,6 +401,8 @@ end
 -- @param node The node whose descendants we are deactivating.
 -- @param path The path to `node` in the XBT.
 -- @param state The state of the XBT's evaluation.
+-- @param clear_data If true, the local data for the path is deleted,
+--  otherwise it is kept
 function xbt.deactivate_node (node, path, state, clear_data)
   if clear_data == nil then clear_data = true end
   xbt.deactivate_descendants(node, path, state)

@@ -2,6 +2,7 @@
 -- @copyright 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
+-- @module util
 
 local util = {}
 local path = require("util.path")

@@ -4,6 +4,8 @@
 -- @copyright 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
+-- @module util.path
+-- 
 local path = {}
 
 --- Generate a new path starting at the root of the XBT.

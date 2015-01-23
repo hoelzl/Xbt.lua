@@ -4,6 +4,7 @@
 -- @copyright © 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
+-- @module main
 
 local util = require("util")
 local xbt = require("xbt")
@@ -433,7 +434,7 @@ local function make_scenario (
     victim_nodes, diameter, teachers, epsilon, delta)
   num_robots = num_robots or 100
   num_nodes = num_nodes or 1000
-  num_steps = num_steps or 50000
+  num_steps = num_steps or 10000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = victim_nodes or num_nodes / 20
   if type(victim_nodes) == "number" then
