@@ -64,7 +64,7 @@ end
 --  `n`.
 --  @function right
 function path.meta.__index.right (p)
-  assert(#p > 0, "The root node has no right sibling.")
+  -- assert(#p > 0, "The root node has no right sibling.")
   p[#p] = p[#p] + 1
   return p
 end
@@ -74,7 +74,7 @@ end
 -- @return The value of `p` modified to point to the parent of `n`.
 -- @function up
 function path.meta.__index.up (p)
-  assert(#p > 0, "Cannot move above the root of a tree.")
+  -- assert(#p > 0, "Cannot move above the root of a tree.")
   p[#p] = nil
   return p
 end
@@ -97,13 +97,14 @@ function path.meta.__index.copy(p, extension)
   end
   if extension then
     if type(extension) == "number" then
-      assert_position(extension)
+      -- assert_position(extension)
       res[#res+1] = extension
     else
-        for _,pos in ipairs(extension) do
-          assert_position(pos)
-          res[#res+1] = pos
-  end   end
+      for _,pos in ipairs(extension) do
+        -- assert_position(pos)
+        res[#res+1] = pos
+      end
+    end
   end
   return res
 end
@@ -116,7 +117,7 @@ end
 --  path.
 -- @function object_id
 function path.meta.__index.object_id (p)
-  assert(#p > 0, "Object id only valid for non-empty paths.")
+  -- assert(#p > 0, "Object id only valid for non-empty paths.")
   return path.new(p[1])
 end
 

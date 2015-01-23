@@ -88,11 +88,26 @@ local function graph_update_edge_cost ()
   local gc = graph.copy_badly(g, 50)
   local sample = {from=1, to=2, cost=g.nodes[1].edges[2].cost}
   for i=1,20 do
-    print("Edge " .. i .. ": \t"
+    print("N = " .. i .. "\t"
       .. g.edges[1].cost .. ", \t" .. gc.edges[1].cost)
     graph.update_edge_cost(gc, sample)
   end
-  
+end
+
+local function graph_update_edge_costs ()
+  local g = graph.generate_graph(10, 10, graph.generate_all_edges)
+  local gc = graph.copy_badly(g, 50)
+  local samples = {
+    {from=1, to=2, cost=g.nodes[1].edges[2].cost},
+    {from=1, to=3, cost=g.nodes[1].edges[3].cost}}
+  for i=1,20 do
+    print("N = " .. i .. "\t"
+      .. g.nodes[1].edges[2].cost .. ", \t"
+      .. gc.nodes[1].edges[2].cost .. ", \t"
+      .. g.nodes[1].edges[3].cost .. ", \t"
+      .. gc.nodes[1].edges[3].cost)
+    graph.update_edge_costs(gc, samples)
+  end
 end
 
 ----------------------------------------------------------------------
@@ -137,7 +152,7 @@ end
 xbt.define_function_name("is_at_home_node", is_at_home_node)
 
 local function drop_off_victim (node, path, state)
-  print("R" .. path[1] .. ": Dropping off victim!")
+  print_trace("R" .. path[1] .. ": Dropping off victim!")
   local data = xbt.local_data(node, path:object_id(), state)
   local value = data.cargo_value
   data.carrying = 0
@@ -172,7 +187,7 @@ end
 xbt.define_function_name("can_pick_up_victim", can_pick_up_victim)
 
 local function pick_up_victim (node, path, state)
-  print("R" .. path[1] .. ": Picking up the victim!")
+  print_trace("R" .. path[1] .. ": Picking up the victim!")
   local data = xbt.local_data(node, path:object_id(), state)
   local graph_node = state.graph.nodes[data.current_node_id]
   data.carrying = data.carrying + 1
@@ -303,7 +318,8 @@ local function initialize_robots (state, num_robots)
   for i = 1,num_robots do
     local path = util.path.new(i)
     paths[i] = path
-    local data = {current_node_id = 1, carrying = 0, cargo_value = 0}
+    local data = {current_node_id = 1,
+      carrying = 0, cargo_value = 0, samples = {}}
     xbt.set_local_data(nil, path, state, data)
   end
 end
@@ -357,9 +373,10 @@ local function main()
   graph_copy()
   graph_update_edge_cost()
   --]]--
+  graph_update_edge_costs()
   math.randomseed(os.time())
-  -- rescue_scenario(100, 1000, 1000)
-  rescue_scenario()
+  -- rescue_scenario(10, 7500, 10)
+  -- rescue_scenario()
   print("Done!")
 end
 

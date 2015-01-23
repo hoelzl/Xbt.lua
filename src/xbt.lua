@@ -234,8 +234,10 @@ end
 -- @param result The new evaluation result for `node`.
 -- @return The new evaluation result for `node`, i.e., `result`.  
 function xbt.set_result(node, path, state, result)
+  --[[--
   assert(xbt.is_result(result),
     tostring(result) .. " is not a valid XBT result.")
+  --]]--
   state.node_results[tostring(path)] = result
   return result
 end
@@ -254,8 +256,10 @@ function xbt.result(node, path, state)
     res = xbt.inactive()
     xbt.set_result(node, path, state, res)
   end
+  --[[--
   assert(xbt.is_result(res),
     tostring(res) .. " is not a valid XBT result.")
+  --]]--
   return res
 end
 
@@ -318,17 +322,18 @@ xbt.default_failure_cost = -1
 function xbt.tick (node, path, state)
   state = xbt.make_state(state)
   path = path or util.path.new()
-  assert(util.path.is_path(path), tostring(path) .. " is not a path.")
+  -- assert(util.path.is_path(path), tostring(path) .. " is not a path.")
   local node_type = node.xbt_node_type
+  --[[--
   assert(node_type, tostring(node) .. " has no xbt_node_type.")
   util.debug_print("xbt.tick: node " .. node.id ..
     " of type " .. node_type .. "\t path=" .. tostring(path))
-  
+  --]]--
   local prev_result = xbt.result(node, path, state)
   local improving = xbt.can_continue(prev_result) and state.improve
   if xbt.is_done(prev_result) and not improving then return prev_result end
   local e = xbt.evaluators[node_type]
-  assert(e, "No evaluator for node type " .. node_type .. ".")
+  -- assert(e, "No evaluator for node type " .. node_type .. ".")
   
   local result = e(node, path, state)
   xbt.set_result(node, path, state, result)
@@ -491,8 +496,10 @@ end
 xbt.define_node_type("fun", {"fun", "args"}, function (node, path, state)
     local fun = xbt.lookup_function(node.fun)
     local result = fun(node, path, state)
+    --[[--
     assert(xbt.is_result(result),
       "Function didn't return a valid result.")
+    --]]--
     return result
   end)
 
@@ -582,8 +589,10 @@ local function tick_seq_node (node, path, state)
     if xbt.is_running(result) then
       return xbt.running(cost)
     end
+    --[[--
     assert(xbt.is_succeeded(result),
       "Evaluation of seq-node child returned " .. tostring(result))
+    --]]--
     -- No longer running, reset the runtime cost.
     xbt.set_local_data(node, path, state, nil)
   end
@@ -614,8 +623,10 @@ local function tick_choice_node (node, path, state)
     if xbt.is_running(result) then
       return xbt.running(cost)
     end
+    --[[--
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
+    --]]--
   end
   xbt.deactivate_node(node, path, state)
   return xbt.failed(cost, "All children failed")
@@ -652,8 +663,10 @@ local function tick_xchoice_node (node, path, state)
     if xbt.is_running(result) then
       return xbt.running(cost)
     end
+    --[[--
     assert(xbt.is_failed(result),
       "Evaluation of choice node returned " .. tostring(result))
+    --]]--
   end
   update_fun(node, path, state, result)
   xbt.deactivate_node(node, path, state)
@@ -692,7 +705,7 @@ function xbt.epsilon_greedy_child_fun (node, path, state)
   local r = math.random(100) / 100.0
   local swap = r < (node.epsilon or 0.25)
   if #children >= 2 and swap then
-    print("Performing epsilon transition.")
+    -- print("Performing epsilon transition.")
     local temp = math.random(2, #children)
     children[1],children[temp] = children[temp],children[1]
   end
@@ -701,7 +714,7 @@ end
 
 -- TODO: Provide a timeout
 local function tick_suppress_failure (node, path, state)
-  assert(node.child, "`Suppress_failure` node needs a child node.")
+  -- assert(node.child, "`Suppress_failure` node needs a child node.")
   local child_result = xbt.tick(node.child, path, state)
   if xbt.is_failed(child_result) then
     return xbt.running(child_result.cost)
@@ -713,7 +726,7 @@ end
 xbt.define_node_type("suppress_failure", {"child"}, tick_suppress_failure)
 
 local function tick_negate (node, path, state)
-  assert(node.child, "`Negate` node needs a child node.")
+  -- assert(node.child, "`Negate` node needs a child node.")
   local child_result = xbt.tick(node.child, path, state)
   if xbt.is_failed(child_result) then
     local args = node.args
@@ -731,8 +744,8 @@ xbt.define_node_type("negate", {"child", "args"}, tick_negate)
 
 -- TODO: Provide a timeout
 local function tick_until (node, path, state)
-  assert(node.pred, "`Until` node needs a predicate.")
-  assert(node.child, "`Until` node needs a child node.")
+  -- assert(node.pred, "`Until` node needs a predicate.")
+  -- assert(node.child, "`Until` node needs a child node.")
   local pred = xbt.lookup_function(node.pred)
   if pred(node, path, state) then
     return xbt.succeeded(0, (node.args.default_value or 0))
@@ -748,8 +761,8 @@ end
 xbt.define_node_type("until", {"pred", "child", "args"}, tick_until)
 
 local function tick_when (node, path, state)
-  assert(node.pred, "`When` node needs a predicate.")
-  assert(node.child, "`When` node needs a child node.")
+  -- assert(node.pred, "`When` node needs a predicate.")
+  -- assert(node.child, "`When` node needs a child node.")
   local pred = xbt.lookup_function(node.pred)
   if pred(node, path, state) then
     return xbt.tick(node.child, path, state) 

@@ -7,6 +7,7 @@ local util = require("util")
 local xbt = require("xbt")
 -- local tablex = require("pl.tablex")
 local dist = require("sci.dist")
+local alg = require("sci.alg")
 local graph = {}
 
 graph.print_trace_info = true
@@ -236,7 +237,7 @@ function graph.outnodes (g, n)
   if type(n) == "number" then
     n = g.nodes[n]
   end
-  assert(n, "Node not found.")
+  -- assert(n, "Node not found.")
   local res = {}
   for _,edge in pairs(n.edges) do
     res[#res+1] = edge.to
@@ -279,7 +280,8 @@ end
 -- @return The `next` table. 
 function graph.floyd (g)
   local n = #g.nodes
-  local dist = graph.generate_table(n, math.huge)
+  -- local dist = graph.generate_table(n, math.huge)
+  local dist = alg.mat(n, n)
   local next = graph.generate_table(n, false)
   for _,e in ipairs(g.edges) do
     dist[e.from.id][e.to.id] = e.cost
@@ -362,20 +364,29 @@ graph.use_global_go_action = true
 
 xbt.define_function_name("go", function (node, path, state)
     local data = xbt.local_data(node, path:object_id(), state)
+    --[[--
     assert(data.current_node_id == node.args.from, 
       "Performing a transition from wrong start node.")
+    --]]--
     local from = data.current_node_id
     local to = node.args.to
     local graph_node = state.graph.nodes[to]
     local typeinfo = graph_node.type == "node" and "" or graph_node.type
     data.current_node_id = to
     local edge = state.graph.nodes[node.args.from].edges[node.args.to]
+    --[[--
     print_trace(">>> R" .. path[1] .. ": Moving from state " ..
       from .. " to " ..  to .. " (cost " .. edge.cost - edge.cost%1 ..
       "). \t"  .. typeinfo)
     io.flush()
     assert(edge, "No edge for go action!")
-    return xbt.succeeded(edge.cost, 0)
+    --]]--
+    local samples = data.samples
+    local cost = edge.cost
+    if samples then
+      data.samples[#samples+1] = {from=from, to=to, cost=cost}
+    end
+    return xbt.succeeded(cost, 0)
   end) 
 
 local go_action_name_prefix = "__go_action_from_"   
@@ -392,8 +403,10 @@ function graph.make_go_action (edge)
       edge.from.id .. "_to_" .. target_node.id
     xbt.define_function_name(action_name, function (node, path, state)
         local data = xbt.local_data(node, path:object_id(), state)
+        --[[--
         assert(data.current_node_id == node.args.from, 
           "Performing a transition from wrong start node")
+        --]]--
         data.current_node_id = target_node.id
         return value
       end)
@@ -445,6 +458,13 @@ function graph.update_edge_cost (g, sample)
   -- that we can use the `initial_edge_occurrences` parameter to
   -- influence how much the initial estimate is favored initially.
   edge.cost = old_cost + 1/(occ+1) * (sample.cost - old_cost) 
+end
+
+function graph.update_edge_costs (g, samples)
+  local update_edge_cost = graph.update_edge_cost
+  for _,sample in ipairs(samples) do
+    update_edge_cost(g, sample)
+  end
 end
 
 return graph
