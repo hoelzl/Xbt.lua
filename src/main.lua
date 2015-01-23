@@ -143,22 +143,13 @@ local function is_at_home_node (node, path, state)
       ": I am not at home, I am nowhere.")
     return false
   end
-  local node = state.graph.nodes[cni]
+  local node = data.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "home"
   print_yes_or_no("R" .. path[1] ..": Am I at a home node?", res)
   return res
 end
 xbt.define_function_name("is_at_home_node", is_at_home_node)
-
-local function drop_off_victim (node, path, state)
-  print_trace("R" .. path[1] .. ": Dropping off victim!")
-  local data = xbt.local_data(node, path:object_id(), state)
-  local value = data.cargo_value
-  data.carrying = 0
-  data.cargo_value = 0
-  return xbt.succeeded(1, value)
-end
 
 local function has_located_victim (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
@@ -168,7 +159,7 @@ local function has_located_victim (node, path, state)
       ": Cannot find a victim since I am nowhere!")
     return false
   end
-  local node = state.graph.nodes[cni]
+  local node = data.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "victim"
   print_yes_or_no("R" .. path[1] .. ": " ..
@@ -189,7 +180,7 @@ xbt.define_function_name("can_pick_up_victim", can_pick_up_victim)
 local function pick_up_victim (node, path, state)
   print_trace("R" .. path[1] .. ": Picking up the victim!")
   local data = xbt.local_data(node, path:object_id(), state)
-  local graph_node = state.graph.nodes[data.current_node_id]
+  local graph_node = data.graph.nodes[data.current_node_id]
   data.carrying = data.carrying + 1
   data.cargo_value = data.cargo_value + (graph_node.value or 1000)
   return xbt.succeeded(10, 0)
@@ -212,7 +203,7 @@ xbt.define_function_name("pick_home_location", pick_home_location)
 
 local function pick_victim_location (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
-  local vls = state.victim_locations
+  local vls = data.victim_locations
   local tni = data.target_node_id
   -- TODO: Should check list of home locations
   local change = not tni or tni == 1 or math.random(10) == 1
@@ -226,29 +217,62 @@ local function pick_victim_location (node, path, state)
 end
 xbt.define_function_name("pick_victim_location", pick_victim_location)
 
+local function update_teacher_result (value, data)
+  local results = data.teacher_results
+  local current_teacher = data.current_teacher
+  local teacher_result = results[current_teacher.id] or {}
+  local n = teacher_result.n or 0
+  local prev_value = teacher_result.value or 0
+  teacher_result.value = prev_value + 1/(n+1) * (value - prev_value)
+  teacher_result.n = n + 1
+end
+
 local function drop_off_victim (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
   local value = data.cargo_value
-  print_trace("R" .. path[1] .. ": Dropping off the victim!  Value obtained: " .. value)
+  print_trace("R" .. path[1]
+    .. ": Dropping off the victim!  Value obtained: " .. value)
   data.carrying = 0
   data.cargo_value = 0
   data.target_node_id = nil
+  update_teacher_result(value, data)
   return xbt.succeeded(0, value)
 end
 xbt.define_function_name("drop_off_victim", drop_off_victim)
 
+-- TODO: Implement better choice of teacher.
+local function pick_teacher (node, path, state)
+  return state.teachers[1]
+end
+
+local function update_robot_data (node, path, state)
+  print_trace("R" .. path[1]
+    .. ": Updating Robot Data!")
+  local data = xbt.local_data(node, path:object_id(), state)
+  local t = pick_teacher(node, path, state)
+  data.graph = t.graph
+  data.victim_locations = t.victim_locations
+  data.movement_costs = t.movement_costs
+  data.best_moves = t.best_moves
+  data.actions = t.actions
+  data.to_nodes = t.to_nodes
+  print_trace("Adding " .. #data.samples .. " samples to teacher.")
+  util.append(t.samples, data.samples)
+  data.samples = {}
+end
+xbt.define_function_name("update_robot_data", update_robot_data)
+
 local function go_actions (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
-  if not state.actions or not data.current_node_id then
+  if not data.actions or not data.current_node_id then
     return {}
   end
-  -- TODO: These are unsorted, as yet.
   local cni = data.current_node_id
   local tni = data.target_node_id
-  local res = tablex.deepcopy(state.actions[cni])
+  local res = tablex.deepcopy(data.actions[cni])
   -- We might not have a best action if we cannot reach the chosen victim
   if cni and tni then
-    local next_node_id = state.best_moves[cni][tni]
+    local next_node_id = data.best_moves[cni][tni]
     if next_node_id then
       -- Move the best action to the front of the list of actions.
       print_trace("R" .. path[1] .. ": Best action: move to " ..
@@ -269,11 +293,13 @@ end
 
 local move_towards_chosen_location =
   xbt.xchoice({}, xbt.epsilon_greedy_child_fun,
-              {sorted_children = go_actions})
+              {sorted_children = go_actions, epsilon=0.5})
 
 local robot_xbt = xbt.choice({
-  xbt.when("is_at_home_node", 
-    xbt.when("is_carrying_victim", xbt.fun("drop_off_victim"))),
+  xbt.when("is_at_home_node",
+    xbt.seq({
+      xbt.action("update_robot_data"),
+      xbt.when("is_carrying_victim", xbt.fun("drop_off_victim"))})),
   xbt.when("has_located_victim",
     xbt.when("can_pick_up_victim", xbt.fun("pick_up_victim"))),
   xbt.when("is_carrying_victim",
@@ -284,15 +310,19 @@ local robot_xbt = xbt.choice({
 })
 
 local function assign_node_types (g, num_home_nodes, victim_nodes)
+  local home_locations, victim_locations = {}, {}
   for i = 1,num_home_nodes do
     g.nodes[i].type = "home"
+    home_locations[#home_locations+1] = i
   end
   local i = num_home_nodes+1
   for _,value in ipairs(victim_nodes) do
     g.nodes[i].type = "victim"
     g.nodes[i].value = value
+    victim_locations[#victim_locations+1] = i
     i = i + 1 
   end
+  return home_locations, victim_locations
 end
 
 local function initialize_graph
@@ -300,15 +330,45 @@ local function initialize_graph
   local g = graph.generate_graph(num_nodes, diameter, graph.make_short_edge_generator(1.5))
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
-  assign_node_types(g, num_home_nodes, victim_nodes)
-  state.current_node_id = 1
-  state.victim_locations = {2, 3} -- location 4 missing deliberately
+  if type(victim_nodes) == "number" then
+    local nv = victim_nodes
+    victim_nodes = {}
+    for i=1,nv do
+      victim_nodes[i] = 10000
+    end
+  end
+  local hls, vls = assign_node_types(g, num_home_nodes, victim_nodes)
+  state.home_locations = hls
+  state.victim_locations = vls
   local actions,to_nodes = graph.make_graph_action_tables(g)
   state.actions = actions
   state.to_nodes = to_nodes
   state.movement_costs, state.best_moves = graph.floyd(g)
 end  
 
+local function initialize_teachers (state, error_funs)
+  local teachers = {}
+  for i,error_fun in ipairs(error_funs) do
+    local g = graph.copy_badly(state.graph, error_fun)
+    local movement_costs, best_moves = graph.floyd(g)
+    local vls = {}
+    for _,vl in ipairs(state.victim_locations) do
+      if util.rng:sample() > 0.3 then
+        vls[#vls+1] = vl
+      end
+    end
+    local actions,to_nodes = graph.make_graph_action_tables(g)
+    teachers[i] = {
+      id=i,
+      graph=g, samples={},
+      home_locations=state.home_locations, victim_locations=vls,
+      movement_costs=movement_costs, best_moves=best_moves,
+      actions=actions, to_nodes=to_nodes}
+  end
+  state.teachers = teachers
+end
+
+-- This requires the teachers to be already initialized!
 local function initialize_robots (state, num_robots)
   -- We use a forest of paths to identify robots; all paths of robot i start
   -- at node [i]
@@ -319,44 +379,80 @@ local function initialize_robots (state, num_robots)
     local path = util.path.new(i)
     paths[i] = path
     local data = {current_node_id = 1,
-      carrying = 0, cargo_value = 0, samples = {}}
+      carrying = 0, cargo_value = 0, 
+      samples = {},
+      current_teacher = state.teachers[1], teacher_results = {}}
     xbt.set_local_data(nil, path, state, data)
+    update_robot_data(nil, path, state)
   end
 end
 
-local function rescue_scenario (num_robots, num_nodes, num_steps,
-  num_home_nodes, victim_nodes, diameter)
-  num_robots = num_robots or 2
-  num_nodes = num_nodes or 25
-  num_steps = num_steps or 200
-  num_home_nodes = num_home_nodes or 1
-  victim_nodes = victim_nodes or {10000, 5000, 8000}
-  if type(victim_nodes) == "number" then
-    local nv = victim_nodes
-    victim_nodes = {}
-    for i=1,nv do
-      victim_nodes[i] = 10000
-    end
+local function start_episode (state, delta)
+  print_trace("========== Starting new episode ==========")
+  local teachers = state.teachers
+  for i,t in ipairs(teachers) do
+    local g = t.graph
+    graph.update_edge_costs(g, t.samples)
+    t.movement_costs, t.best_moves = graph.floyd(g)
+    print("Updated T" .. i .. " with "
+      .. #t.samples .. " samples.  ("
+      .. graph.absolute_difference(state.movement_costs, t.movement_costs)
+      .. ", "
+      .. graph.different_choices(state.best_moves, t.best_moves)
+      .. ").")
+    t.samples = {}
   end
+  state.epsilon = state.epsilon * delta
+end
+
+local function rescue_scenario (num_robots, num_nodes, num_steps,
+  num_home_nodes, victim_nodes, diameter, epsilon, delta)
+  num_robots = num_robots or 25
+  num_nodes = num_nodes or 100
+  num_steps = num_steps or 2000
+  num_home_nodes = num_home_nodes or 1
+  victim_nodes = victim_nodes or num_nodes / 10
   diameter = diameter or 10000
+  epsilon = epsilon or 0.8
+  delta = delta or 0.999
   print("Robot rescue scenario (" .. num_steps .. " steps)...")
-  local state = xbt.make_state()
+  local state = xbt.make_state({epsilon=epsilon})
   initialize_graph(state, num_nodes, num_home_nodes, victim_nodes, diameter)
+  initialize_teachers(state, {1000})
   initialize_robots(state, num_robots)
+  local episode_steps = num_steps / (num_steps < 1000 and 10 or 100)
+  local episode
+  local episodes = {}
   local total_value = 0
   local total_cost = 0
   for i = 1,num_steps do
+    if i % episode_steps == 1 then
+      episode = {value=0, cost=0, 
+        state={movement_costs=state.movement_costs, 
+               best_moves=state.best_moves,
+               epsilon=state.epsilon},
+        teachers={}}
+      -- TODO: Fill in teacher data
+      episodes[#episodes+1] = episode
+      start_episode(state, delta)
+      -- delta = delta * delta
+    end
     for r = 1,num_robots do
       local path = state.paths[r]
       local result = xbt.tick(robot_xbt, path:copy(1), state)
       total_value = total_value + result.value
       total_cost = total_cost + result.cost
+      episode.value = episode.value + result.value
+      episode.cost = episode.cost + result.cost
       -- Reset the node, but don't clear its data
       xbt.reset_node(robot_xbt, path, state, false)
     end
   end
-  print("Total value = " .. total_value .. 
-    ", total cost = " .. total_cost)
+  for i,e in ipairs(episodes) do
+    print("Episode value = " .. e.value .. ",\t episode cost = " .. e.cost
+      .. " (" .. e.state.epsilon .. ")")
+  end
+  print("Total value   = " .. total_value .. ",\t total cost   = " .. total_cost)
 end
 
 
@@ -372,11 +468,11 @@ local function main()
   tick_negate()
   graph_copy()
   graph_update_edge_cost()
-  --]]--
   graph_update_edge_costs()
+  --]]--
   math.randomseed(os.time())
   -- rescue_scenario(10, 7500, 10)
-  -- rescue_scenario()
+  rescue_scenario()
   print("Done!")
 end
 

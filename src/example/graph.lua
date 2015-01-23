@@ -280,8 +280,10 @@ end
 -- @return The `next` table. 
 function graph.floyd (g)
   local n = #g.nodes
-  -- local dist = graph.generate_table(n, math.huge)
-  local dist = alg.mat(n, n)
+  local dist = graph.generate_table(n, math.huge)
+  -- Use this version for higher performance (but it does not work with
+  -- the debugger, unfortunately.
+  -- local dist = alg.mat(n, n)
   local next = graph.generate_table(n, false)
   for _,e in ipairs(g.edges) do
     dist[e.from.id][e.to.id] = e.cost
@@ -300,6 +302,31 @@ function graph.floyd (g)
   g.dist = dist
   g.next = next
   return dist,next
+end
+
+--- Compute the difference in distances between two `dist` tables
+-- of the same size.
+function graph.absolute_difference (dist1, dist2)
+  local res = 0
+  for i,d in ipairs(dist1) do
+    for j,v in ipairs(d) do
+      res = res + math.abs(v - dist2[i][j])
+    end
+  end
+  return res
+end
+
+--- Compute the number of different choices for two `next` tables.
+function graph.different_choices (next1, next2)
+  local res = 0
+  for i,n in ipairs(next1) do
+    for j,v in ipairs(n) do
+      if v ~= next2[i][j] then
+        res = res + 1
+      end
+    end
+  end
+  return res
 end
 
 --- Compute the cheapest path between nodes in a graph.

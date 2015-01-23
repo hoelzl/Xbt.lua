@@ -593,8 +593,6 @@ local function tick_seq_node (node, path, state)
     assert(xbt.is_succeeded(result),
       "Evaluation of seq-node child returned " .. tostring(result))
     --]]--
-    -- No longer running, reset the runtime cost.
-    xbt.set_local_data(node, path, state, nil)
   end
   xbt.deactivate_node(node, path, state)
   return xbt.succeeded(cost, value)
@@ -608,6 +606,37 @@ end
 -- @return A sequence node.  This node is serializable if its children
 --  are.
 xbt.define_node_type("seq", {"children"}, tick_seq_node)
+
+-- The tick function for all-sequence nodes
+local function tick_all_node (node, path, state)
+   -- Cost and value for this node
+  local cost = 0
+  local value = 0
+  local children = node.children or {}
+  for pos, child in pairs(children) do
+    local p = path:copy(pos)
+    local result = xbt.tick(child, p, state)
+    -- Update the total accumulated cost/value
+    cost = cost + result.cost
+    value = value + (result.value or 0)
+    if xbt.is_running(result) then
+      return xbt.running(cost)
+    end
+  end
+  xbt.deactivate_node(node, path, state)
+  -- TODO: Maybe return the result status of the last node?
+  return xbt.succeeded(cost, value)
+end
+
+--- Generate an all-sequence node.
+-- All-sequence ("all") nodes evaluate their children sequentially.
+-- They always evaluate all of their children and return success, no
+-- matter whether their children succeed or fail.
+-- @function all
+-- @param children The child nodes of the node.
+-- @return An all-sequence node.  This node is serializable if its children
+--  are.
+xbt.define_node_type("all", {"children"}, tick_all_node)
 
 local function tick_choice_node (node, path, state)
   local cost = 0
@@ -703,7 +732,7 @@ xbt.define_node_type("xchoice",
 function xbt.epsilon_greedy_child_fun (node, path, state)
   local children = node.args.sorted_children(node, path, state)
   local r = math.random(100) / 100.0
-  local swap = r < (node.epsilon or 0.25)
+  local swap = r < (state.epsilon or node.args.epsilon or 0.25)
   if #children >= 2 and swap then
     -- print("Performing epsilon transition.")
     local temp = math.random(2, #children)
