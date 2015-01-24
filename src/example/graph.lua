@@ -182,7 +182,8 @@ function graph.generate_graph (number_of_nodes, size, edge_generator)
   if type(size) == "number" then size={x=size,y=size} end
   local nodes = {}
   for i = 1,number_of_nodes do
-    local x,y = util.rng:sample() * size.x, util.rng:sample() * size.y
+    local x = math.floor(util.rng:sample() * size.x)
+    local y = math.floor(util.rng:sample() * size.y)
     nodes[#nodes+1] = {id=i, x=x, y=y, type="node", edges={}}
   end
   local edges = edge_generator(nodes)
