@@ -4,9 +4,9 @@
 -- @license MIT, see the file LICENSE.md.
 -- @module example.nodes
 
-local util = require("util")
+local util = require("xbt.util")
 local xbt = require("xbt")
-local graph = require("example.graph")
+local graph = require("xbt.graph")
 
 local nodes = {}
 

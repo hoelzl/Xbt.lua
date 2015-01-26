@@ -1,3 +1,3 @@
 project = "Xbt"
-file = { "src/util/", "src/example/", "src/xbt.lua", "src/main.lua" }
+file = { "src/xbt/", "src/xbt.lua" }
 format = "markdown"

@@ -2,11 +2,9 @@
 -- @copyright 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
--- @module util
+-- @module xbt.util
 
 local util = {}
-local path = require("util.path")
-util.path = path
 local prng = require("sci.prng")
 util.rng = prng.std()
 

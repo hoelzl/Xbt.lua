@@ -2,10 +2,10 @@
 -- @copyright 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
--- @module example.graph
+-- @module xbt.graph
 
-local util = require("util")
 local xbt = require("xbt")
+local util = require("xbt.util")
 -- local tablex = require("pl.tablex")
 local dist = require("sci.dist")
 local alg = require("sci.alg")

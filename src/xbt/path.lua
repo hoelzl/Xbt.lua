@@ -4,7 +4,7 @@
 -- @copyright 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
--- @module util.path
+-- @module xbt.path
 -- 
 local path = {}
 
@@ -66,7 +66,7 @@ end
 --  `n`.
 --  @function right
 function path.meta.__index.right (p)
-  -- assert(#p > 0, "The root node has no right sibling.")
+  assert(#p > 0, "The root node has no right sibling.")
   p[#p] = p[#p] + 1
   return p
 end
@@ -76,7 +76,7 @@ end
 -- @return The value of `p` modified to point to the parent of `n`.
 -- @function up
 function path.meta.__index.up (p)
-  -- assert(#p > 0, "Cannot move above the root of a tree.")
+  assert(#p > 0, "Cannot move above the root of a tree.")
   p[#p] = nil
   return p
 end
@@ -119,7 +119,7 @@ end
 --  path.
 -- @function object_id
 function path.meta.__index.object_id (p)
-  -- assert(#p > 0, "Object id only valid for non-empty paths.")
+  assert(#p > 0, "Object id only valid for non-empty paths.")
   return path.new(p[1])
 end
 

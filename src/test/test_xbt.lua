@@ -3,7 +3,8 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
-local util = require("util")
+local util = require("xbt.util")
+local xbt_paht = require("xbt.path")
 local xbt = require("xbt")
 local lunatest = require("lunatest")
 
@@ -71,12 +72,12 @@ end
 
 function t.test_make_state_1 ()
   assert_true(util.equal(xbt.make_state(),
-      {blackboard={}, node_results={}, improve=false}))
+      {blackboard={}, node_results={}, local_data={}, improve=false}))
 end
 
 function t.test_make_state_2 ()
   assert_true(util.equal(xbt.make_state({blackboard={x=1}}),
-    {blackboard={x=1}, node_results={}, improve=false}))
+    {blackboard={x=1}, node_results={}, local_data={}, improve=false}))
 end
 
 function t.test_is_done ()

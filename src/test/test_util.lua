@@ -3,7 +3,8 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 
-local util = require("util")
+local util = require("xbt.util")
+local xbt_path = require("xbt.path")
 local lunatest = require("lunatest")
 
 local assert_equal = lunatest.assert_equal
@@ -130,17 +131,17 @@ function t.test_maybe_add_3 ()
 end
 
 function t.test_path_new ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   assert_true(util.equal(p,{}))
-  assert_true(util.equal(getmetatable(p), util.path.meta))
-  p = util.path.new(10, 20, 30, 40)
+  assert_true(util.equal(getmetatable(p), xbt_path.meta))
+  p = xbt_path.new(10, 20, 30, 40)
   assert_true(util.equal(p,{10, 20, 30, 40}))
-  assert_true(util.equal(getmetatable(p), util.path.meta))
+  assert_true(util.equal(getmetatable(p), xbt_path.meta))
   
 end
 
 function t.test_down ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   assert_true(util.equal(p,{}))
   local res = p:down()
   assert_true(util.equal(res, {1}))
@@ -155,7 +156,7 @@ function t.test_down ()
 end
 
 function t.test_up ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   p:down()
   p:down()
   p:down()
@@ -178,7 +179,7 @@ function t.test_up ()
 end
 
 function t.test_right ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   p:down()
   assert_true(util.equal(p, {1}))
   local res = p:right()
@@ -195,18 +196,18 @@ function t.test_right ()
 end
 
 function t.test_is_path ()
-  local p = util.path.new()
-  assert_true(util.path.is_path(p))
+  local p = xbt_path.new()
+  assert_true(xbt_path.is_path(p))
   p:down() 
-  assert_true(util.path.is_path(p))
+  assert_true(xbt_path.is_path(p))
   p:right()
-  assert_true(util.path.is_path(p))
+  assert_true(xbt_path.is_path(p))
   p:up()
-  assert_true(util.path.is_path(p))
+  assert_true(xbt_path.is_path(p))
 end
 
 function t.test_path_copy_1 ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   p:down(); p:down()
   p:right(); p:right(); p:right()
   p:down()
@@ -229,7 +230,7 @@ function t.test_path_copy_1 ()
 end
 
 function t.test_path_copy_2 ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   p:down(); p:down()
   p:right(); p:right(); p:right()
   p:down()
@@ -252,7 +253,7 @@ function t.test_path_copy_2 ()
 end
 
 function t.test_path_copy_3 ()
-  local p = util.path.new()
+  local p = xbt_path.new()
   p:down(); p:down()
   p:right(); p:right(); p:right()
   p:down()
@@ -275,8 +276,8 @@ function t.test_path_copy_3 ()
 end
 
 function t.test_path_eq ()
-  local p1 = util.path.new(1,3,6,4,5,2)
-  local p2 = util.path.new(1,3,6,4,5,2)
+  local p1 = xbt_path.new(1,3,6,4,5,2)
+  local p2 = xbt_path.new(1,3,6,4,5,2)
   local p3 = p2:copy()
   assert_true(p1 == p2)
   assert_true(p2 == p1)
@@ -302,8 +303,8 @@ function t.test_path_eq ()
 end
 
 function t.test_path_to_string ()
-  local p1 = util.path.new()
-  local p2 = util.path.new(1,3,6,4,5,2)
+  local p1 = xbt_path.new()
+  local p2 = xbt_path.new(1,3,6,4,5,2)
   assert_equal(tostring(p1), "[]")
   assert_equal(tostring(p2), "[1,3,6,4,5,2]")
   assert_equal(tostring(p2:copy()), "[1,3,6,4,5,2]")
