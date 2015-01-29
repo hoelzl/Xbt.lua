@@ -726,7 +726,7 @@ function xbt.epsilon_greedy_child_fun (node, path, state)
   local swap = r < (state.epsilon or node.args.epsilon or 0.25)
   if #children >= 2 and swap then
     -- print("Performing epsilon transition.")
-    local temp = math.random(2, #children)
+    local temp = util.random(2, #children)
     children[1],children[temp] = children[temp],children[1]
   end
   return children

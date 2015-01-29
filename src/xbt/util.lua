@@ -24,7 +24,7 @@ function util.uuid ()
     "a", "b", "c", "d", "e", "f" }
   local result = {}
   local function append_digit()
-    local index = math.random(1, #digits)
+    local index = util.random(1, #digits)
     result[#result + 1] = digits[index]
   end
   local function append_n_digits(n)
@@ -39,7 +39,7 @@ function util.uuid ()
   result[#result + 1] = "4"
   append_n_digits(3)
   result[#result + 1] = "-"
-  result[#result + 1] = digits[math.random(8,11)]
+  result[#result + 1] = digits[util.random(8,11)]
   append_n_digits(3)
   result[#result + 1] = "-"
   append_n_digits(8)

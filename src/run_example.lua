@@ -115,11 +115,9 @@ local function graph_update_edge_costs ()
 end
 
 
-math.randomseed(1)
 navigate_graph()
 
 --[[--
-math.randomseed(os.time())
 search()
 tick_suppress_failure()
 tick_negate()

@@ -116,7 +116,7 @@ local function pick_victim_location (node, path, state)
   if not change then
     print_trace("R" .. path[1] .. ": Keeping taget location " .. tni .. ".")
   else
-    local r = math.floor(util.rng:sample() * #vls) + 1
+    local r = util.random(#vls)
     local loc = vls[r]
     print_trace("R" .. path[1] .. ": New target location " .. loc .. "!")
     data.target_node_id = loc

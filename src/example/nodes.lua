@@ -16,12 +16,12 @@ local function fail_walk (node, path, state)
   print("fw:\t", node.id, "path = ", tostring(path), "state =", state)
   local prev_result = xbt.result(node, path, state)
   local prev_cost = (xbt.is_running(prev_result) and prev_result.cost) or 0
-  if (math.random(fail_walk_avg_tries) == 1) then
-    local cost = prev_cost + math.random()
+  if (util.random(fail_walk_avg_tries) == 1) then
+    local cost = prev_cost + util.random()
     print("\tfw: failed with cost    " .. cost)
     return xbt.failed(cost, "Fell off a cliff.")
   else
-    local cost = prev_cost + math.random()
+    local cost = prev_cost + util.random()
     print("\tfw: running with cost   " .. cost)
     return xbt.running(cost)
   end
@@ -35,18 +35,18 @@ local function random_walk (node, path, state)
   print("rw:\t", node.id, "path = ", tostring(path), "state =", state)
   local prev_result = xbt.result(node, path, state)
   local prev_cost = (xbt.is_running(prev_result) and prev_result.cost) or 0
-  if (math.random(random_walk_avg_tries) == 1) then
-    if (math.random(2) == 1) then
-      local cost, value = prev_cost + math.random(), math.random()
+  if (util.random(random_walk_avg_tries) == 1) then
+    if (util.random(2) == 1) then
+      local cost, value = prev_cost + util.random(), util.random()
       print("\trw: succeeded with cost " .. cost .. ", value " .. value)
       return xbt.succeeded(cost, value)
     else
-      local cost = prev_cost + math.random()
+      local cost = prev_cost + util.random()
       print("\trw: failed with cost    " .. cost)
       return xbt.failed(cost, "Fell off a cliff.")
     end
   else
-    local cost = prev_cost + math.random()
+    local cost = prev_cost + util.random()
     print("\trw: running with cost   " .. cost)
     return xbt.running(cost)
   end
@@ -63,15 +63,15 @@ local function search_pattern (node, path, state)
   local current_try = xbt.local_data(node, path, state, 1)
   xbt.set_local_data(node, path, state, current_try + 1)
   if (current_try % search_pattern_success == 0) then
-    local cost, value = prev_cost + math.random(), math.random()
+    local cost, value = prev_cost + util.random(), util.random()
     print("\tsp: succeeded with cost " .. cost .. ", value " .. value)
     return xbt.succeeded(cost, value)
-  elseif (math.random(2*search_pattern_success) == 1) then
-    local cost = prev_cost + math.random()
+  elseif (util.random(2*search_pattern_success) == 1) then
+    local cost = prev_cost + util.random()
     print("\tsp: failed with cost    " .. cost)
     return xbt.failed(cost, "Fell off a cliff.")
   else
-    local cost = prev_cost + math.random()
+    local cost = prev_cost + util.random()
     print("\tsp: running with cost   " .. cost)
     return xbt.running(cost)
   end
