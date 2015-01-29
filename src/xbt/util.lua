@@ -8,6 +8,14 @@ local util = {}
 local prng = require("sci.prng")
 util.rng = prng.std()
 
+function util.random (m, n)
+  if not n then
+    m,n = 1,m
+  end
+  local res = math.floor(util.rng:sample() * (n-m+1)) + m
+  return res
+end
+
 --- An implementation of version 4 UUIDs.
 -- @return A string in UUID V4 format.
 function util.uuid ()

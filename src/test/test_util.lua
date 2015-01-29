@@ -19,6 +19,24 @@ local assert_nil = lunatest.assert_nil
 
 local t = {}
 
+function t.test_random ()
+  for i=1,100 do
+    local r = util.random(20)
+    assert_true(1 <= r)
+    assert_true(r <= 20)
+  end
+  for i=1,100 do
+    local r = util.random(10, 20)
+    assert_true(10 <= r)
+    assert_true(r <= 20)
+  end
+  for i=1,100 do
+    local r = util.random(-10, 20)
+    assert_true(-10 <= r)
+    assert_true(r <= 20)
+  end
+end
+
 function t.test_uuid ()
   -- Only test for the correct pattern.
   assert_true(string.match(
