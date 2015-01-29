@@ -78,15 +78,17 @@ end
 -- @param t1 A table.
 -- @param t2 A table.
 -- @return `true` if `t1` and `t2` have the same value, `false`
---  otherwise.  Calls itself recursively and may therefore fail for
---  cyclic data structures.
-function util.equal(t1, t2)
+--  otherwise.
+function util.equal(t1, t2, cache)
+  cache = cache or {}
   if (type(t1) == "table" and type(t2) == "table") then
+    if cache[t1] == t2 then return true end
+    cache[t1] = t2
     for k,v in pairs(t1) do
-      if not util.equal(t2[k], v) then return false end
+      if not util.equal(t2[k], v, cache) then return false end
     end
     for k,v in pairs(t2) do
-      if not util.equal(t1[k], v) then return false end
+      if not util.equal(t1[k], v, cache) then return false end
     end
     return true
   else
