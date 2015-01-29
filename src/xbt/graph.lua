@@ -11,7 +11,8 @@ local dist = require("sci.dist")
 local alg = require("sci.alg")
 local graph = {}
 
-graph.print_trace_info = true
+--- Print information about the execution of some graph functions.
+graph.print_trace_info = false
 
 local function print_trace (...)
   if graph.print_trace_info then
@@ -19,7 +20,7 @@ local function print_trace (...)
   end
 end
 
---- Compute the distance between two nodes
+--- Compute the distance between two nodes.
 -- @param n1 The first node.
 -- @param n2 The second node.
 -- @return The distance between `n1` and `n2`.
@@ -30,10 +31,10 @@ function graph.node_dist (n1, n2)
   return math.sqrt(dx*dx + dy*dy)
 end
 
---- Compute the diameter of a graph
--- Compute the diameter of the nodes of a graph, i.e., the maximum
--- distance between any two nodes.  It is passed a set of nodes, not a
--- graph.
+--- Compute the diameter of a graph.
+-- The diameter of (the nodes of) a graph $g$ is the maximum distance
+-- between any two nodes of $g$.  This function accepts a set of
+-- nodes, /not/ a graph.
 -- @param nodes The nodes of a graph.
 -- @return The diameter of the graph.
 function graph.diameter (nodes)
@@ -48,6 +49,9 @@ function graph.diameter (nodes)
 end
 
 --- Compute the minimum distance between a node and a set of nodes.
+-- If `node` appears in the set of nodes it is ignored, i.e., the
+-- result is always positive.  If `nodes` is empty or all members of
+-- `nodes` are equal to `n`, the value `math.huge` is returned.
 -- @param node A node.
 -- @param nodes A set of nodes.
 -- @return The minimum distance between `node` and any element of
@@ -160,33 +164,44 @@ end
 
 --- Generate a graph.
 -- Generate a graph with the given number of nodes.
--- @param number_of_nodes The number of nodes in the graph.  Each node
---  has an integer attribute `id` that has to correspond to its
---  position in the array of nodes, `x` and `y` attributes that
---  describe its physical location, a `type` attribute that has the
+-- @param nodes An array of nodes or the number of nodes in the graph.
+--  If a node array is passed as argument, each node must have `x` and
+--  `y` attributes that describe its physical location.  Each node is
+--  assigned an integer attribute `id` that corresponds to its
+--  position in the array of nodes, a `type` attribute that has the
 --  value `"node"`, and an array of the same size as the nodes table
 --  that contains `nil` for indices of nodes for which there is no
 --  edge, and the transition for indices for which a transition
 --  exists.  The entries in this array have to be filled in by the
---  `edge_generator`.
+--  `edge_gen`.
 -- @param size The size of the are in which the nodes are located.
 --  May either be a number, in which case both x and y dimension are
 --  set to this number, or a pair `{x=x, y=y}` that specifies the
---  dimensions for x and y separately.  Defaults to 500.
--- @param edge_generator A function that generates the edges for the
+--  dimensions for x and y separately.  Defaults to 500.  Ignored when
+--  an arrayo of nodes is passed in.
+-- @param edge_gen A function that generates the edges for the
 --  graph given the table of nodes.  The generator has to add each
 --  edge to the correct index of the `edges` array of its start node. 
-function graph.generate_graph (number_of_nodes, size, edge_generator)
-  edge_generator = edge_generator or graph.generate_all_edges
+function graph.generate_graph (nodes, size, edge_gen)
+  edge_gen = edge_gen or graph.generate_all_edges
   if not size then size = 500 end
   if type(size) == "number" then size={x=size,y=size} end
-  local nodes = {}
-  for i = 1,number_of_nodes do
-    local x = util.random(0, size.x)
-    local y = util.random(0, size.y)
-    nodes[#nodes+1] = {id=i, x=x, y=y, type="node", edges={}}
+  if type(nodes) == "number" then
+    local number_of_nodes = nodes
+    nodes = {}
+    for i = 1,number_of_nodes do
+      local x = util.random(0, size.x)
+      local y = util.random(0, size.y)
+      nodes[#nodes+1] = {id=i, x=x, y=y, type="node", edges={}}
+    end
+  else
+    for i,n in ipairs(nodes) do
+      n.id = i
+      n.type = "node"
+      n.edges = {}
+    end
   end
-  local edges = edge_generator(nodes)
+  local edges = edge_gen(nodes)
   return {nodes=nodes, edges=edges}
 end
 
@@ -212,23 +227,72 @@ function graph.copy (g)
   return {nodes=nodes, edges=edges}
 end
 
+local function generate_edges (edges, n1, i, n2, j, cost, occ)
+  local dist = graph.node_dist(n1, n2)
+  local edge1 = {from=n1, to=n2, type="edge",
+    dist=dist, cost=cost,
+    occurrences=occ}
+  edges[#edges+1] = edge1
+  n1.edges[j] = edge1;
+  local edge2 = {from=n2, to=n1, type="edge",
+    dist=dist, cost=cost,
+    occurrences=occ}
+  edges[#edges+1] = edge2
+  n2.edges[i] = edge2
+end
+
 --- Copy a graph, introducing errors in the edge costs.
 -- @param g The graph to copy.
--- @param error_fun A function receiving the cost of an edge in `g` as
---  argument and returning the cost for the copy of the edge.
-function graph.copy_badly (g, error_fun)
-  if not error_fun then error_fun = graph.diameter(g.nodes) / 2 end
-  if type(error_fun) == "number" then
-    local sd = dist.normal(0, error_fun)
-    error_fun = function (cost)
-      return cost + sd:sample(util.rng)
+-- @param p_del The probability with which existing edges are deleted.
+--  Defaults to 0.25.
+-- @param p_gen The probability with which new edges will be introduced.
+--  Defaults to 0.1.
+-- @param err A function that computes the error for the new edge cost,
+--  based on the old cost, or the standard deviation of a normal
+--  distribution with which the existing costs are modified.
+--  Defaults to 1.
+function graph.copy_badly (g, p_del, p_gen, err)
+  p_del = p_del or 0.25
+  p_gen = p_gen or 0.1
+  local err_fun
+  if not err then err = 1 end
+  if type(err) == "number" then
+    if err <= 0 then
+      err_fun = function (cost) return cost end
+    else
+      local sd = dist.normal(0, err or 1)
+      err_fun = function (cost) return cost + sd:sample(util.rng) end
+    end
+  else
+    err_fun = err
+  end
+  local nodes,edges = {},{}
+  for i,n in ipairs(g.nodes) do
+    nodes[i] = {id=i, x=n.x, y=n.y, type=n.type, edges = {},
+      value=n.value}
+  end
+  for i = 1,#nodes-1 do
+    for j = i+1,#nodes do
+      local n1,n2 = nodes[i], nodes[j]
+      local o1,o2 = g.nodes[i], g.nodes[j]
+      local old_edge = o1.edges[j]
+      if old_edge then
+        if util.rng:sample() > p_del then
+          -- Don't delete; create new edges with modified cost
+          local cost = err_fun(old_edge.cost or 0)
+          local occ = old_edge.occurrences or graph.initial_edge_occurrences
+          generate_edges(edges, n1, i, n2, j, cost, occ)
+        end
+      else
+        if util.rng:sample() <= p_gen then
+          local cost = graph.node_dist(n1, n2)
+          local occ = graph.initial_edge_occurrences
+          generate_edges(edges, n1, i, n2, j, cost, occ) 
+        end
+      end
     end
   end
-  local res = graph.copy(g)
-  for _,e in ipairs(res.edges) do
-    e.cost = error_fun(e.cost)
-  end
-  return res
+  return {nodes=nodes, edges=edges}
 end
 
 --- All nodes reachable via an outgoing edge.
@@ -394,11 +458,9 @@ graph.use_global_go_action = true
 
 xbt.define_function_name("go", function (node, path, state)
     local data = xbt.local_data(node, path:object_id(), state)
-    local graph = --[[ data.graph or --]] state.graph
-    --[[--
+    local graph = data.graph or state.graph
     assert(data.current_node_id == node.args.from, 
       "Performing a transition from wrong start node.")
-    --]]--
     local from = data.current_node_id
     local to = node.args.to
     local graph_node = graph.nodes[to]
@@ -437,10 +499,8 @@ function graph.make_go_action (edge)
       edge.from.id .. "_to_" .. target_node.id
     xbt.define_function_name(action_name, function (node, path, state)
         local data = xbt.local_data(node, path:object_id(), state)
-        --[[--
         assert(data.current_node_id == node.args.from, 
           "Performing a transition from wrong start node")
-        --]]--
         data.current_node_id = target_node.id
         return value
       end)

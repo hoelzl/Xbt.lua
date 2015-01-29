@@ -35,7 +35,7 @@ end
 local function is_carrying_victim (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
   local res = data.carrying > 0
-  print_yes_or_no("R" .. path[1] ..
+  print_yes_or_no("R" .. string.sub(path.id, 1, 4) ..
     ": Am I carrying a victim?", res)
   return res
 end
@@ -45,14 +45,14 @@ local function is_at_home_node (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
   local cni = data.current_node_id
   if not cni then
-    print_trace("R" .. path[1] .. 
+    print_trace("R" .. string.sub(path.id, 1, 4) .. 
       ": I am not at home, I am nowhere.")
     return false
   end
   local node = data.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "home"
-  print_yes_or_no("R" .. path[1] ..": Am I at a home node?", res)
+  print_yes_or_no("R" .. string.sub(path.id, 1, 4) ..": Am I at a home node?", res)
   return res
 end
 xbt.define_function_name("is_at_home_node", is_at_home_node)
@@ -61,14 +61,14 @@ local function has_located_victim (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
   local cni = data.current_node_id
   if not cni then
-    print_trace("R" .. path[1] .. 
+    print_trace("R" .. string.sub(path.id, 1, 4) .. 
       ": Cannot find a victim since I am nowhere!")
     return false
   end
   local node = data.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
   local res = node.type == "victim"
-  print_yes_or_no("R" .. path[1] .. ": " ..
+  print_yes_or_no("R" .. string.sub(path.id, 1, 4) .. ": " ..
     "Have I located a victim?", res)
   return res
 end
@@ -77,14 +77,14 @@ xbt.define_function_name("has_located_victim", has_located_victim)
 local function can_pick_up_victim (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
   local res = data.carrying == 0
-  print_yes_or_no("R" .. path[1] ..
+  print_yes_or_no("R" .. string.sub(path.id, 1, 4) ..
     ": Can I pick up the victim?", res)
   return res
 end
 xbt.define_function_name("can_pick_up_victim", can_pick_up_victim)
 
 local function pick_up_victim (node, path, state)
-  print_trace("R" .. path[1] .. ": Picking up the victim!")
+  print_trace("R" .. string.sub(path.id, 1, 4) .. ": Picking up the victim!")
   local data = xbt.local_data(node, path:object_id(), state)
   local graph_node = data.graph.nodes[data.current_node_id]
   data.carrying = data.carrying + 1
@@ -97,11 +97,11 @@ local function pick_home_location (node, path, state)
   -- TODO: This should actually check a list of home locations.
   local data = xbt.local_data(node, path:object_id(), state)
   if data.target_node_id ~= 1 then
-    print_trace("R" .. path[1] .. 
+    print_trace("R" .. string.sub(path.id, 1, 4) .. 
       ": New home location " .. 1 .. "!")
     data.target_node_id = 1
   else
-    print_trace("R" .. path[1] .. 
+    print_trace("R" .. string.sub(path.id, 1, 4) .. 
       ": Keeping home location " .. data.target_node_id .. ".")
   end
 end
@@ -114,11 +114,11 @@ local function pick_victim_location (node, path, state)
   -- TODO: Should check list of home locations
   local change = not tni or tni == 1 or util.rng:sample() < 0.1
   if not change then
-    print_trace("R" .. path[1] .. ": Keeping taget location " .. tni .. ".")
+    print_trace("R" .. string.sub(path.id, 1, 4) .. ": Keeping taget location " .. tni .. ".")
   else
     local r = util.random(#vls)
     local loc = vls[r]
-    print_trace("R" .. path[1] .. ": New target location " .. loc .. "!")
+    print_trace("R" .. string.sub(path.id, 1, 4) .. ": New target location " .. loc .. "!")
     data.target_node_id = loc
   end
 end
@@ -137,7 +137,7 @@ end
 local function drop_off_victim (node, path, state)
   local data = xbt.local_data(node, path:object_id(), state)
   local value = data.cargo_value
-  print_trace("R" .. path[1]
+  print_trace("R" .. string.sub(path.id, 1, 4)
     .. ": Dropping off the victim!  Value obtained: " .. value)
   data.carrying = 0
   data.cargo_value = 0
@@ -153,7 +153,7 @@ local function pick_teacher (node, path, state)
 end
 
 local function update_robot_data (node, path, state)
-  print_trace("R" .. path[1]
+  print_trace("R" .. string.sub(path.id, 1, 4)
     .. ": Updating Robot Data!")
   local data = xbt.local_data(node, path:object_id(), state)
   local t = pick_teacher(node, path, state)
@@ -182,7 +182,7 @@ local function go_actions (node, path, state)
     local next_node_id = data.best_moves[cni][tni]
     if next_node_id then
       -- Move the best action to the front of the list of actions.
-      print_trace("R" .. path[1] .. ": Best action: move to " ..
+      print_trace("R" .. string.sub(path.id, 1, 4) .. ": Best action: move to " ..
         tni .. ", next node is " ..  next_node_id .. ".")
       for i = 1,#res do
         local a = res[i]
@@ -249,11 +249,13 @@ end
 local function initialize_teachers (state, scenario)
   local teachers = {}
   for i,error_fun in ipairs(scenario.teachers) do
-    local g = graph.copy_badly(state.graph, error_fun)
+    -- TODO: Fix teacher representation
+    local g = graph.copy_badly(state.graph)
     local movement_costs, best_moves = graph.floyd(g)
     local vls = {}
-    for _,vl in ipairs(state.victim_locations) do
-      if util.rng:sample() > 0.3 then
+    for i,vl in ipairs(state.victim_locations) do
+      -- Ensure that we have at least one victim location.
+      if i == 1 or util.rng:sample() > 0.3 then
         vls[#vls+1] = vl
       end
     end
@@ -275,8 +277,11 @@ local function initialize_robots (state, scenario)
   local paths = {}
   state.paths = paths
   state.num_robots = scenario.num_robots
+  state.robots = {}
   for i = 1,state.num_robots do
-    local path = xbt_path.new(i)
+    local uuid = util.uuid()
+    state.robots[i] = {id=uuid}
+    local path = xbt_path.new(uuid)
     paths[i] = path
     local data = {current_node_id = 1,
       carrying = 0, cargo_value = 0, 
@@ -342,10 +347,10 @@ local function make_scenario (
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
     damage)
   num_robots = num_robots or 1 -- 25
-  num_nodes = num_nodes or 100
-  num_steps = num_steps or 5000
+  num_nodes = num_nodes or 10 -- 100
+  num_steps = num_steps or 500 -- 5000
   num_home_nodes = num_home_nodes or 1
-  victim_nodes = victim_nodes or num_nodes / 20
+  victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
     local nv = victim_nodes
     victim_nodes = {}
@@ -458,14 +463,14 @@ end
 local function main()
   print("XBTs are ready to go.")
   -- rescue_scenario()
-  print("Perfect info:")
-  rescue_scenario(perfect_info_scenario)
+--  print("Perfect info:")
+--  rescue_scenario(perfect_info_scenario)
   print("Default:")
   rescue_scenario(default_scenario)
-  print("Perfect info with damage:")
-  rescue_scenario(perfect_info_damage_scenario)
-  print("Default with damage:")
-  rescue_scenario(damage_scenario)
+--  print("Perfect info with damage:")
+--  rescue_scenario(perfect_info_damage_scenario)
+--  print("Default with damage:")
+--  rescue_scenario(damage_scenario)
   print("Done!")
 end
 

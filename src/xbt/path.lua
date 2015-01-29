@@ -120,7 +120,7 @@ function path.meta.__index.copy(p, extension)
   return res
 end
 
---- Return a path containing the first element of a path.
+--- Return the root path for a path.
 -- When running the same XBT for multiple objects we use the first
 -- component of the path as object id, so that we have a forest of
 -- execution trees.
@@ -128,8 +128,13 @@ end
 --  path.
 -- @function object_id
 function path.meta.__index.object_id (p)
-  assert(#p > 0, "Object id only valid for non-empty paths.")
-  return path.new(p[1])
+  if p.root_path then
+    return p.root_path
+  else
+    local rp = path.new(p.id)
+    p.root_path = rp
+    return rp 
+  end
 end
 
 --- Check whether a value represents a path.

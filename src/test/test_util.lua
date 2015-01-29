@@ -60,11 +60,11 @@ function t.test_equal_1 ()
 end
 
 function t.test_equal_2 ()
-  assert_true(util.equal({}, {}))
-  assert_false(util.equal({}, {1}))
-  assert_false(util.equal({1}, {}))
-  assert_false(util.equal({}, {x = "X"}))
-  assert_false(util.equal({x = "X"}, {}))
+  assert_true(util.equal({}, {}), "Empty tables not equal.")
+  assert_false(util.equal({}, {1}), "Empty table equal to array.")
+  assert_false(util.equal({1}, {}), "Array equal to empty table.")
+  assert_false(util.equal({}, {x = "X"}), "Empty table equal to map.")
+  assert_false(util.equal({x = "X"}, {}), "Map equal to empty table.")
 end
 
 function t.test_equal_3 ()
