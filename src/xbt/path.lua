@@ -5,22 +5,29 @@
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
 -- @module xbt.path
--- 
+
+local util = require("xbt.util")
+
 local path = {}
 
+--- The metatable for path objects.
+path.meta = {__index={}}
+
 --- Generate a new path starting at the root of the XBT.
+-- @param id The ID of the agent which is evaluating the XBT.  If no
+--  argument is provided for `id`, then a random UUID is generated,
+--  so that empty paths allocated without any arguments are never
+--  equal to each other.
 -- @param ... Any number of positive integers can be passed as
 --  arguments to the function and will be used as the value for the
 --  result path.
 -- @return A new path.
-function path.new (...)
+function path.new (id, ...)
   local p = {...}
   setmetatable(p, path.meta)
+  p.id = id or util.uuid()
   return p
 end
-
---- The metatable for path objects.
-path.meta = {__index={}}
 
 --- Paths are compared using value equality.
 -- @param p1 A path.
@@ -30,6 +37,7 @@ path.meta = {__index={}}
 -- @function __eq
 function path.meta.__eq (p1, p2)
   if #p1 ~= #p2 then return false end
+  if p1.id ~= p2.id then return false end
   for i,pos in ipairs(p1) do
     if p2[i] ~= pos then return false end
   end
@@ -41,7 +49,8 @@ end
 -- @return A string representation of `p`
 -- @function __tostring
 function path.meta.__tostring (p)
-  local res, sep = "[", ""
+  local res = "[" .. p.id .. ":"
+  local sep = ""
   for _,pos in ipairs(p) do
     res = res .. sep .. pos
     sep = ","
@@ -93,7 +102,7 @@ function path.meta.__index.copy(p, extension)
   local function assert_position (pos)
     assert(pos >= 0, "Cannot add negative positions to a path.")
   end
-  local res = path.new()
+  local res = path.new(p.id)
   for i,n in ipairs(p) do
     res[i] = n
   end
