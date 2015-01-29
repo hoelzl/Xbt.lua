@@ -6,6 +6,7 @@
 lunatest = require("lunatest")
 
 lunatest.suite("test.test_util")
+lunatest.suite("test.test_path")
 lunatest.suite("test.test_xbt")
 
 lunatest.run()
