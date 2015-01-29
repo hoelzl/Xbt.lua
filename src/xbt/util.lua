@@ -6,8 +6,20 @@
 
 local util = {}
 local prng = require("sci.prng")
+
+--- The central random number generator.
+-- To ensure that experiments can be repeated we use a single random
+-- number generator in all places where random numbers are needed, and
+-- we add its seed to the description of the experiment.
 util.rng = prng.std()
 
+--- Generate a random bounded integer.
+-- The generated integer is between `m` and `n` (inclusive) if two
+-- arguments are provided, otherwise it is between `1` and `n`. 
+-- @param m The lower bound of the generated numbers (inclusive) if
+--  a second argument is provided, otherwise the upper bound.
+-- @param n The upper bound of the generated number if an argument is
+--  provided.
 function util.random (m, n)
   if not n then
     m,n = 1,m
@@ -17,6 +29,7 @@ function util.random (m, n)
 end
 
 --- An implementation of version 4 UUIDs.
+-- Generates a V4 (random) unique identifier represented as a string.
 -- @return A string in UUID V4 format.
 function util.uuid ()
   local digits = {
