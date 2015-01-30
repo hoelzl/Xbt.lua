@@ -234,7 +234,8 @@ end
 
 local function initialize_graph (state, scenario)
   local g = graph.generate_graph(scenario.num_nodes, 
-    scenario.diameter, graph.make_short_edge_generator(2.0))  -- was 1.5
+    scenario.diameter, graph.make_short_edge_generator(1))
+  g = graph.copy_badly(g, 0.6, 0.25, 0)
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
   local hls, vls = assign_node_types(g, scenario.num_home_nodes, scenario.victim_nodes)
@@ -323,10 +324,12 @@ local function start_episode (state, scenario, episode)
   print_trace("========== Starting new episode ==========")
   local teachers = state.teachers
   episode.teachers = {}
+  local update_ratio
   for i,t in ipairs(teachers) do
     local g = t.graph
     if scenario.teachers_learn then
-      graph.update_edge_rewards(g, t.samples)
+      update_ratio = graph.update_edge_rewards(g, t.samples)
+      print("Update ratio: ", update_ratio)
       t.movement_rewards, t.best_moves = graph.floyd(g)
     end
     local et = {id=t.id}
@@ -340,7 +343,11 @@ local function start_episode (state, scenario, episode)
   end
   local eps = state.epsilon
   if eps > state.epsilon_min then
-    state.epsilon = eps * eps -- * eps
+    if update_ratio then
+      state.epsilon = math.min(0.9999999, eps * update_ratio * 1e5)
+    else 
+      state.epsilon = eps * eps -- * eps
+    end
   else
     state.epsilon = state.epsilon_min
   end
@@ -352,22 +359,26 @@ local function make_scenario (
     damage, teachers_learn)
   num_robots = num_robots or 25 -- 25
   num_nodes = num_nodes or 100 -- 100
-  num_steps = num_steps or 5000 -- 5000
+  num_steps = num_steps or 50000 -- 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
     local nv = victim_nodes
     victim_nodes = {}
     for i=1,nv do
-      victim_nodes[i] = 1000
+      victim_nodes[i] = 100000
     end
   end
   diameter = diameter or 500
   teachers = teachers or {{}}
   epsilon = epsilon or 0.999999999
-  epsilon_min = epsilon_min or 0.2
+  epsilon_min = epsilon_min or 0.01
   damage = damage or false
-  teachers_learn = teachers_learn
+  if teachers_learn == nil then
+    teachers_learn = true
+  else
+    teachers_learn = teachers_learn
+  end
   
   return {
     num_robots=num_robots, num_nodes=num_nodes,
@@ -377,6 +388,7 @@ local function make_scenario (
     teachers = teachers, 
     epsilon=epsilon, epsilon_min=epsilon_min,
     damage=damage,
+    teachers_learn=teachers_learn,
     random_seed=tostring(util.rng)
   }  
 end
@@ -416,7 +428,7 @@ local function run_simulation (state, scenario, episodes)
     end
     if scenario.damage and i == math.floor(num_steps / 4) then
       print("Damaging graph!")
-      local g = graph.copy_badly(state.graph, 1, 0.8)
+      local g = graph.copy_badly(state.graph, 0.75, 0.5, 0)
       state.graph = g
       state.movement_rewards, state.best_moves = graph.floyd(g)
       state.actions,state.to_nodes = graph.make_graph_action_tables(g)
@@ -459,10 +471,10 @@ end
 local function main()
   print("XBTs are ready to go.")
   -- rescue_scenario()
---  print("Perfect info:")
---  rescue_scenario(perfect_info_scenario)
---  print("Default:")
---  rescue_scenario(default_scenario)
+  print("Perfect info:")
+  rescue_scenario(perfect_info_scenario)
+  print("Default:")
+  rescue_scenario(default_scenario)
   print("Perfect info with damage:")
   rescue_scenario(perfect_info_damage_scenario)
   print("Default with damage:")

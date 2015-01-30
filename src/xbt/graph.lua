@@ -244,18 +244,18 @@ end
 --- Copy a graph, introducing errors in the edge rewards.
 -- @param g The graph to copy.
 -- @param p_del The probability with which existing edges are deleted.
---  Defaults to 0.5.
+--  Defaults to 0.1.
 -- @param p_gen The probability with which new edges will be introduced.
---  Defaults to 0.25.
+--  Defaults to 0.05.
 -- @param err A function that computes the error for the new edge reward,
 --  based on the old reward, or the standard deviation of a normal
 --  distribution with which the existing rewards are modified.
---  Defaults to 1/4 the diameter of `g`.
+--  Defaults to 1/20 the diameter of `g`.
 function graph.copy_badly (g, p_del, p_gen, err)
-  p_del = p_del or 0.5
-  p_gen = p_gen or 0.1
+  p_del = p_del or 0.1
+  p_gen = p_gen or 0.05
   local err_fun
-  if not err then err = graph.diameter(g.nodes) / 4 end
+  if not err then err = graph.diameter(g.nodes) / 20 end
   if type(err) == "number" then
     if err <= 0 then
       err_fun = function (reward) return reward end
@@ -452,10 +452,9 @@ function graph.pathstring (g, n1, n2)
   return res
 end
 
--- If `use_global_go_action` is true, `make_go_action` generates
--- a call to action `go` with the ids of source and target as well
--- as the value of the transition as node arguments.
-graph.use_global_go_action = true
+--- The cost of a failed action.
+-- The reward of a failed navigation action is the negated value of the cost.
+graph.failure_cost = 100
 
 function graph.go_action (node, path, state)
   local data = xbt.local_data(node, path:root_path(), state)
@@ -472,7 +471,7 @@ function graph.go_action (node, path, state)
       .. " tried to perform an invalid move to "
       .. to_id .. ".")
     io.flush()
-    return xbt.failed(0)
+    return xbt.failed(-(graph.failure_cost or 100))
   end
   data.current_node_id = to_id
   ---[[--
@@ -488,7 +487,7 @@ function graph.go_action (node, path, state)
     local reward = edge.reward
     data.samples[#samples+1] = {from_id=from_id, to_id=to_id, reward=reward}
   end
-  return xbt.succeeded(reward)
+  return xbt.succeeded(edge.reward)
 end
 
 xbt.define_function_name("go", graph.go_action) 
@@ -547,12 +546,21 @@ function graph.update_edge_reward (g, sample)
   print_trace("Updating reward: ", from_id, to_id, old_reward, occ, sample.reward, new_reward)
   edge.reward = new_reward
   edge.occurrences = edge.occurrences + 1
+  return math.abs(old_reward), math.abs(sample.reward - old_reward)
 end
 
 function graph.update_edge_rewards (g, samples)
   local update_edge_reward = graph.update_edge_reward
+  local total,diff
   for _,sample in ipairs(samples) do
-    update_edge_reward(g, sample)
+    local t,d = update_edge_reward(g, sample)
+    total = (total or 0) + t
+    diff = (diff or 0) + d
+  end
+  if diff and total then
+    return diff/total
+  else
+    return nil
   end
 end
 
