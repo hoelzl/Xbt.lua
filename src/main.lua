@@ -20,7 +20,7 @@ local prng = require("sci.prng")
 -- Graph navigation using XBTs
 -- 
 
-local print_trace_info = false
+local print_trace_info = true
 
 local function print_trace (...)
   if print_trace_info then
@@ -344,7 +344,7 @@ local function start_episode (state, scenario, episode)
   local eps = state.epsilon
   if eps > state.epsilon_min then
     if update_ratio then
-      state.epsilon = math.min(0.9999999, eps * update_ratio * 1e5)
+      state.epsilon = math.min(0.9999999, eps * update_ratio * 1e4)
     else 
       state.epsilon = eps * eps -- * eps
     end
@@ -357,9 +357,9 @@ local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
     damage, teachers_learn)
-  num_robots = num_robots or 25 -- 25
-  num_nodes = num_nodes or 100 -- 100
-  num_steps = num_steps or 50000 -- 5000
+  num_robots = num_robots or 1 -- 25
+  num_nodes = num_nodes or 15 -- 100
+  num_steps = num_steps or 10000 -- 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
@@ -471,12 +471,12 @@ end
 local function main()
   print("XBTs are ready to go.")
   -- rescue_scenario()
-  print("Perfect info:")
-  rescue_scenario(perfect_info_scenario)
-  print("Default:")
-  rescue_scenario(default_scenario)
-  print("Perfect info with damage:")
-  rescue_scenario(perfect_info_damage_scenario)
+--  print("Perfect info:")
+--  rescue_scenario(perfect_info_scenario)
+--  print("Default:")
+--  rescue_scenario(default_scenario)
+--  print("Perfect info with damage:")
+--  rescue_scenario(perfect_info_damage_scenario)
   print("Default with damage:")
   rescue_scenario(damage_scenario)
   print("Done!")
