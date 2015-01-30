@@ -186,13 +186,13 @@ local function go_actions (node, path, state)
         tni .. ", next node is " ..  next_node_id .. ".")
       for i = 1,#res do
         local a = res[i]
-        if a.args.to == next_node_id then
+        if a.args.to_id == next_node_id then
           res[i] = res[1]
           res[1] = a
           break
         end
       end
-      assert(res[1].args.to == next_node_id)
+      assert(res[1].args.to_id == next_node_id)
     end
   end
   return res
@@ -349,9 +349,9 @@ local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
     damage)
-  num_robots = num_robots or 1 -- 25
-  num_nodes = num_nodes or 10 -- 100
-  num_steps = num_steps or 500 -- 5000
+  num_robots = num_robots or 25 -- 25
+  num_nodes = num_nodes or 100 -- 100
+  num_steps = num_steps or 5000 -- 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
@@ -462,7 +462,7 @@ local function rescue_scenario (scenario)
 end
 
 
---- Show off some XBT functionality.
+--- Run the rescue scenario.
 local function main()
   print("XBTs are ready to go.")
   -- rescue_scenario()

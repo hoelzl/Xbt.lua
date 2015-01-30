@@ -22,7 +22,10 @@ local t = {}
 function t.test_path_new ()
   local id = util.uuid()
   local p = xbt_path.new(id)
-  assert_true(util.equal(p,{id=id}))
+  local ip = xbt_path.new_immutable(id)
+  assert_true(util.equal(p, {id=id}))
+  assert_true(util.equal(ip, {id=id, immutable=true}))
+  assert_equal(p, ip)
   assert_false(util.equal(xbt_path.new(), p))
   assert_false(util.equal(xbt_path.new(), xbt_path.new()))
   assert_true(util.equal(getmetatable(p), xbt_path.meta))
@@ -45,6 +48,8 @@ function t.test_down ()
   p:down()
   p:down()
   assert_true(util.equal(p, {id=id, 1, 1, 1, 1, 1}))
+  local ip = xbt_path.new_immutable(id)
+  assert_error(function () ip:down() end)
 end
 
 function t.test_up ()
@@ -69,6 +74,8 @@ function t.test_up ()
   assert_true(util.equal(res, {id=id}))
   assert_true(util.equal(p, {id=id}))
   assert_error(function () p:up() end)
+  local ip = xbt_path.new_immutable(id, 1, 2, 3)
+  assert_error(function () ip:up() end)
 end
 
 function t.test_right ()
@@ -87,6 +94,8 @@ function t.test_right ()
   res = p:up()
   assert_true(util.equal(res, {id=id}))
   assert_error(function () p:right() end)
+  local ip = xbt_path.new_immutable(id, 1, 2, 3)
+  assert_error(function () ip:right() end)
 end
 
 function t.test_is_path ()
@@ -98,6 +107,8 @@ function t.test_is_path ()
   assert_true(xbt_path.is_path(p))
   p:up()
   assert_true(xbt_path.is_path(p))
+  local ip = xbt_path.new_immutable()
+  assert_true(xbt_path.is_path(ip))
 end
 
 function t.test_path_copy_1 ()

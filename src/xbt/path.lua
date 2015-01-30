@@ -29,11 +29,27 @@ function path.new (id, ...)
   return p
 end
 
+--- Generate a new immutable path starting at the root of the XBT.
+-- @param id The ID of the agent which is evaluating the XBT.  If no
+--  argument is provided for `id`, then a random UUID is generated,
+--  so that empty paths allocated without any arguments are never
+--  equal to each other.
+-- @param ... Any number of positive integers can be passed as
+--  arguments to the function and will be used as the value for the
+--  result path.
+-- @return A new path.
+function path.new_immutable (id, ...)
+  local p = path.new(id, ...)
+  p.immutable = true
+  return p
+end
+
 --- Paths are compared using value equality.
 -- @param p1 A path.
 -- @param p2 Another path.
 -- @return `true` if `p1` and `p2` point to the same location in the
---  tree, false otherwise.
+--  tree, false otherwise.  Does not differentiate whether the paths
+--  differ in their `immutable` flag.
 -- @function __eq
 function path.meta.__eq (p1, p2)
   if #p1 ~= #p2 then return false end
@@ -65,6 +81,7 @@ end
 --  `n`.
 --  @function down
 function path.meta.__index.down (p)
+  assert(not p.immutable, "Cannot go down an immutable path.")
   p[#p+1] = 1
   return p
 end
@@ -76,6 +93,7 @@ end
 --  @function right
 function path.meta.__index.right (p)
   assert(#p > 0, "The root node has no right sibling.")
+  assert(not p.immutable, "Cannot go right in an immutable path.")
   p[#p] = p[#p] + 1
   return p
 end
@@ -86,6 +104,7 @@ end
 -- @function up
 function path.meta.__index.up (p)
   assert(#p > 0, "Cannot move above the root of a tree.")
+  assert(not p.immutable, "Cannot go up an immutable path.")
   p[#p] = nil
   return p
 end
@@ -131,7 +150,7 @@ function path.meta.__index.root_path (p)
   if p.cached_root_path then
     return p.cached_root_path
   else
-    local rp = path.new(p.id)
+    local rp = path.new_immutable(p.id)
     p.cached_root_path = rp
     return rp 
   end
