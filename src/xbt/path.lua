@@ -126,13 +126,13 @@ end
 -- execution trees.
 -- @return A new path containing only the first element of the given
 --  path.
--- @function object_id
-function path.meta.__index.object_id (p)
-  if p.root_path then
-    return p.root_path
+-- @function root_path
+function path.meta.__index.root_path (p)
+  if p.cached_root_path then
+    return p.cached_root_path
   else
     local rp = path.new(p.id)
-    p.root_path = rp
+    p.cached_root_path = rp
     return rp 
   end
 end

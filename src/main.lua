@@ -33,7 +33,7 @@ local function print_yes_or_no (prefix, res)
 end
 
 local function is_carrying_victim (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local res = data.carrying > 0
   print_yes_or_no("R" .. string.sub(path.id, 1, 4) ..
     ": Am I carrying a victim?", res)
@@ -42,7 +42,7 @@ end
 xbt.define_function_name("is_carrying_victim", is_carrying_victim)
 
 local function is_at_home_node (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local cni = data.current_node_id
   if not cni then
     print_trace("R" .. string.sub(path.id, 1, 4) .. 
@@ -58,7 +58,7 @@ end
 xbt.define_function_name("is_at_home_node", is_at_home_node)
 
 local function has_located_victim (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local cni = data.current_node_id
   if not cni then
     print_trace("R" .. string.sub(path.id, 1, 4) .. 
@@ -75,7 +75,7 @@ end
 xbt.define_function_name("has_located_victim", has_located_victim)
 
 local function can_pick_up_victim (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local res = data.carrying == 0
   print_yes_or_no("R" .. string.sub(path.id, 1, 4) ..
     ": Can I pick up the victim?", res)
@@ -85,7 +85,7 @@ xbt.define_function_name("can_pick_up_victim", can_pick_up_victim)
 
 local function pick_up_victim (node, path, state)
   print_trace("R" .. string.sub(path.id, 1, 4) .. ": Picking up the victim!")
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local graph_node = data.graph.nodes[data.current_node_id]
   data.carrying = data.carrying + 1
   data.cargo_value = data.cargo_value + (graph_node.value or 1000)
@@ -95,7 +95,7 @@ xbt.define_function_name("pick_up_victim", pick_up_victim)
 
 local function pick_home_location (node, path, state)
   -- TODO: This should actually check a list of home locations.
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   if data.target_node_id ~= 1 then
     print_trace("R" .. string.sub(path.id, 1, 4) .. 
       ": New home location " .. 1 .. "!")
@@ -108,7 +108,7 @@ end
 xbt.define_function_name("pick_home_location", pick_home_location)
 
 local function pick_victim_location (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local vls = data.victim_locations
   local tni = data.target_node_id
   -- TODO: Should check list of home locations
@@ -135,7 +135,7 @@ local function update_teacher_result (value, data)
 end
 
 local function drop_off_victim (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local value = data.cargo_value
   print_trace("R" .. string.sub(path.id, 1, 4)
     .. ": Dropping off the victim!  Value obtained: " .. value)
@@ -155,7 +155,7 @@ end
 local function update_robot_data (node, path, state)
   print_trace("R" .. string.sub(path.id, 1, 4)
     .. ": Updating Robot Data!")
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   local t = pick_teacher(node, path, state)
   data.graph = t.graph
   data.victim_locations = t.victim_locations
@@ -170,7 +170,7 @@ end
 xbt.define_function_name("update_robot_data", update_robot_data)
 
 local function go_actions (node, path, state)
-  local data = xbt.local_data(node, path:object_id(), state)
+  local data = xbt.local_data(node, path:root_path(), state)
   if not data.actions or not data.current_node_id then
     return {}
   end
@@ -280,8 +280,11 @@ local function initialize_robots (state, scenario)
   state.robots = {}
   for i = 1,state.num_robots do
     local uuid = util.uuid()
-    state.robots[i] = {id=uuid}
     local path = xbt_path.new(uuid)
+    if not path == path:root_path() then
+      print("Path not equal to root path.")
+    end
+    state.robots[i] = {id=uuid, path=path}
     paths[i] = path
     local data = {current_node_id = 1,
       carrying = 0, cargo_value = 0, 

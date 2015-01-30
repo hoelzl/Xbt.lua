@@ -221,10 +221,16 @@ end
 --  the body, so it can be `nil` if the node for path is not known.
 -- @param path A path identifying the instance of the node.
 -- @param state The current state of the evaluation.
--- @param default The value returned if no data is available.
+-- @param default The value returned if no data is available.  Default
+--  is {}
 -- @return The previously stored data or `default`.
 function xbt.local_data (node, path, state, default)
-  return state.local_data[tostring(path)] or default
+  local data = state.local_data[tostring(path)]
+  if not data then
+    default = default or {}
+    xbt.set_local_data(node, path, state, data)
+  end
+  return data or default
 end
 
 --- Set the evaluation result for a node.

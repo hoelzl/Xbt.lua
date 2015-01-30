@@ -457,7 +457,7 @@ end
 graph.use_global_go_action = true
 
 xbt.define_function_name("go", function (node, path, state)
-    local data = xbt.local_data(node, path:object_id(), state)
+    local data = xbt.local_data(node, path:root_path(), state)
     local graph = data.graph or state.graph
     assert(data.current_node_id == node.args.from, 
       "Performing a transition from wrong start node.")
@@ -498,7 +498,7 @@ function graph.make_go_action (edge)
     action_name = go_action_name_prefix ..
       edge.from.id .. "_to_" .. target_node.id
     xbt.define_function_name(action_name, function (node, path, state)
-        local data = xbt.local_data(node, path:object_id(), state)
+        local data = xbt.local_data(node, path:root_path(), state)
         assert(data.current_node_id == node.args.from, 
           "Performing a transition from wrong start node")
         data.current_node_id = target_node.id
