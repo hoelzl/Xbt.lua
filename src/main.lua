@@ -346,7 +346,7 @@ local function start_episode (state, scenario, episode)
   local eps = state.epsilon
   if eps > state.epsilon_min then
     if update_ratio then
-      state.epsilon = math.min(0.75, math.pow(update_ratio, 0.1))
+      state.epsilon = math.min(0.75, math.pow(update_ratio, 0.5))
     else 
       state.epsilon = eps * eps -- * eps
     end
