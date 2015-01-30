@@ -95,8 +95,8 @@ end
 -- towards the initial value, so that the first few samples don't
 -- have an undue effect on the graph if the environment is very
 -- noisy.  Therefore we can adjust how often the update algorithm
--- thinks that it has already seen the initial reward of the edge before
--- the first update.
+-- thinks that it has already seen the initial reward of the edge
+-- before the first update.
 graph.initial_edge_occurrences = 1
 
 --- Generate all possible edges between members of nodes.
@@ -111,12 +111,12 @@ function graph.generate_all_edges (nodes)
       local n1,n2 = nodes[i], nodes[j]
       local dist = graph.node_dist(n1, n2)
       local edge1 = {from=n1, to=n2, type="edge",
-        dist=dist, reward=dist,
+        dist=dist, reward=-dist,
         occurrences=graph.initial_edge_occurrences}
       edges[#edges+1] = edge1
       n1.edges[j] = edge1
       local edge2 = {from=n2, to=n1, type="edge",
-        dist=dist, reward=dist,
+        dist=dist, reward=-dist,
         occurrences=graph.initial_edge_occurrences}
       edges[#edges+1] = edge2
       n2.edges[i] = edge2
@@ -146,12 +146,12 @@ function graph.make_short_edge_generator (slack)
         local dist = graph.node_dist(n1, n2)
         if dist <= maxmin_dist * slack then
           local edge1 = {from=n1, to=n2, type="edge",
-            dist=dist, reward=dist,
+            dist=dist, reward=-dist,
             occurrences=graph.initial_edge_occurrences}
           edges[#edges+1] = edge1
           n1.edges[j] = edge1
           local edge2 = {from=n2, to=n1, type="edge",
-            dist=dist, reward=dist,
+            dist=dist, reward=-dist,
             occurrences=graph.initial_edge_occurrences}
           edges[#edges+1] = edge2
           n2.edges[i] = edge2
@@ -285,7 +285,7 @@ function graph.copy_badly (g, p_del, p_gen, err)
         end
       else
         if util.rng:sample() <= p_gen then
-          local reward = graph.node_dist(n1, n2)
+          local reward = -graph.node_dist(n1, n2)
           local occ = graph.initial_edge_occurrences
           generate_edges(edges, n1, i, n2, j, reward, occ) 
         end
@@ -332,53 +332,53 @@ end
 
 --- Compute the tables for computing all paths in a graph.
 -- Uses the Floyd-Warshall dynamic-programming algorithm to compute
--- tables `dist` and `next`.  `dist`'s entries at position `[i][j]`
--- contain the (weighted) reward of the cheapes path between nodes `i`
+-- tables `rewards` and `next`.  `rewards`'s entries at position `[i][j]`
+-- contain the (weighted) reward of the cheapest path between nodes `i`
 -- and `j` (where `i` and `j` are the node ids or, equivalently, their
 -- position in the `nodes` array of the graph).  The reward is taken
 -- from the transition's `reward` attribute.  The entry of `next` at
 -- this position is the next node on the shortest path between the two
--- nodes.  These tables are then added to `g` as the `dist` and `next`
+-- nodes.  These tables are then added to `g` as the `rewards` and `next`
 -- attributes; if these attributes already exist they are not taken
 -- into account and overwritten.  The algorithm has time complexity
 -- O(`#g.nodes`^3) and quadratic space complexity.
 -- @param g The graph whose tables are computed.
--- @return The `dist` table.
+-- @return The `rewards` table.
 -- @return The `next` table. 
 function graph.floyd (g)
   local n = #g.nodes
-  local dist = graph.generate_table(n, math.huge)
+  local rewards = graph.generate_table(n, -math.huge)
   -- Use this version for higher performance (but it does not work with
   -- the debugger, unfortunately.
-  -- local dist = alg.mat(n, n)
+  -- local rewards = alg.mat(n, n)
   local next = graph.generate_table(n, false)
   for _,e in ipairs(g.edges) do
-    dist[e.from.id][e.to.id] = e.reward
+    rewards[e.from.id][e.to.id] = e.reward
     next[e.from.id][e.to.id] = e.to.id
   end
   for k = 1,n do
     for i = 1,n do
       for j = 1,n do
-        if dist[i][k] + dist[k][j] < dist[i][j] then
-          dist[i][j] = dist[i][k] + dist[k][j]
+        if rewards[i][k] + rewards[k][j] > rewards[i][j] then
+          rewards[i][j] = rewards[i][k] + rewards[k][j]
           next[i][j] = next[i][k]
         end
       end
     end
   end
-  g.dist = dist
+  g.rewards = rewards
   g.next = next
-  return dist,next
+  return rewards,next
 end
 
---- Compute the difference in distances between two `dist` tables
+--- Compute the difference in rewards between two `rewards` tables
 -- of the same size.
-function graph.absolute_difference (dist1, dist2)
+function graph.absolute_difference (rewards1, rewards2)
   local res = 0
-  local size = #dist1
+  local size = #rewards1
   for i=1,size do
     for j=1,size do
-      res = res + math.abs(dist1[i][j] - dist2[i][j])
+      res = res + math.abs(rewards1[i][j] - rewards2[i][j])
     end
   end
   return res
@@ -399,7 +399,7 @@ end
 
 --- Compute the cheapest path between nodes in a graph.
 -- Compute the cheapest path between two nodes in a graph.  The first
--- invocation of this function uses `floyd` to compute the `dist` and
+-- invocation of this function uses `floyd` to compute the `rewards` and
 -- `next` tables for `g` and therefore has time complexity
 -- O(`#g.nodes`^3) and quadratic space complexity.  Subsequent
 -- invocations have linear complexity in the size of the path.
@@ -409,10 +409,10 @@ end
 -- @return An array containing the ids of the nodes on the cheapest
 --  path between 'n1' and 'n2'. 
 function graph.path (g, n1, n2)
-  if not g.dist then
+  if not g.rewards then
     graph.floyd(g)
   end
-  local dist,next = g.dist,g.next
+  local rewards,next = g.rewards,g.next
   local u = type(n1) == "number" and n1 or n1.id
   local v = type(n2) == "number" and n2 or n2.id
   local path = {n1.id}
