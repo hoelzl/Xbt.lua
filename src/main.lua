@@ -20,7 +20,7 @@ local prng = require("sci.prng")
 -- Graph navigation using XBTs
 -- 
 
-local print_trace_info = true
+local print_trace_info = false
 
 local function print_trace (...)
   if print_trace_info then
@@ -171,19 +171,20 @@ xbt.define_function_name("update_robot_data", update_robot_data)
 
 local function go_actions (node, path, state)
   local data = xbt.local_data(node, path:root_path(), state)
-  if not data.actions or not data.current_node_id then
+  if not state.actions or not data.current_node_id then
     return {}
   end
   local cni = data.current_node_id
   local tni = data.target_node_id
-  local res = tablex.deepcopy(data.actions[cni])
+  local res = tablex.deepcopy(state.actions[cni])
   -- We might not have a best action if we cannot reach the chosen victim
   if cni and tni then
     local next_node_id = data.best_moves[cni][tni]
     if next_node_id then
       -- Move the best action to the front of the list of actions.
-      print_trace("R" .. string.sub(path.id, 1, 4) .. ": Best action: move to " ..
-        tni .. ", next node is " ..  next_node_id .. ".")
+      print_trace("R" .. string.sub(path.id, 1, 4) 
+        .. ": Best action: move from state " .. cni .. " to " 
+        .. tni .. ", next node is " ..  next_node_id .. ".")
       for i = 1,#res do
         local a = res[i]
         if a.args.to_id == next_node_id then
@@ -192,7 +193,7 @@ local function go_actions (node, path, state)
           break
         end
       end
-      assert(res[1].args.to_id == next_node_id)
+      -- assert(res[1].args.to_id == next_node_id)
     end
   end
   return res
@@ -256,7 +257,8 @@ local function initialize_teachers (state, scenario)
     local vls = {}
     for i,vl in ipairs(state.victim_locations) do
       -- Ensure that we have at least one victim location.
-      if i == 1 or util.rng:sample() > 0.3 then
+      if i == 1 or util.rng:sample() > 0 --[[was: 0.3 ]]-- 
+      then
         vls[#vls+1] = vl
       end
     end
@@ -329,7 +331,7 @@ local function start_episode (state, scenario, episode)
     local g = t.graph
     if scenario.teachers_learn then
       update_ratio = graph.update_edge_rewards(g, t.samples)
-      print("Update ratio: ", update_ratio)
+      print_trace("Update ratio: ", update_ratio)
       t.movement_rewards, t.best_moves = graph.floyd(g)
     end
     local et = {id=t.id}
@@ -344,7 +346,7 @@ local function start_episode (state, scenario, episode)
   local eps = state.epsilon
   if eps > state.epsilon_min then
     if update_ratio then
-      state.epsilon = math.min(0.9999999, eps * update_ratio * 1e4)
+      state.epsilon = math.min(0.75, math.pow(update_ratio, 0.1))
     else 
       state.epsilon = eps * eps -- * eps
     end
@@ -359,7 +361,7 @@ local function make_scenario (
     damage, teachers_learn)
   num_robots = num_robots or 1 -- 25
   num_nodes = num_nodes or 15 -- 100
-  num_steps = num_steps or 10000 -- 5000
+  num_steps = num_steps or 2000 -- 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
@@ -432,6 +434,7 @@ local function run_simulation (state, scenario, episodes)
       state.graph = g
       state.movement_rewards, state.best_moves = graph.floyd(g)
       state.actions,state.to_nodes = graph.make_graph_action_tables(g)
+      print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
     end
     for r = 1,scenario.num_robots do
       local path = state.paths[r]
@@ -471,12 +474,12 @@ end
 local function main()
   print("XBTs are ready to go.")
   -- rescue_scenario()
---  print("Perfect info:")
---  rescue_scenario(perfect_info_scenario)
---  print("Default:")
---  rescue_scenario(default_scenario)
---  print("Perfect info with damage:")
---  rescue_scenario(perfect_info_damage_scenario)
+  print("Perfect info:")
+  rescue_scenario(perfect_info_scenario)
+  print("Default:")
+  rescue_scenario(default_scenario)
+  print("Perfect info with damage:")
+  rescue_scenario(perfect_info_damage_scenario)
   print("Default with damage:")
   rescue_scenario(damage_scenario)
   print("Done!")

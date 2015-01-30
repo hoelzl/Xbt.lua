@@ -12,7 +12,7 @@ local alg = require("sci.alg")
 local graph = {}
 
 --- Print information about the execution of some graph functions.
-graph.print_trace_info = true
+graph.print_trace_info = false
 
 local function print_trace (...)
   if graph.print_trace_info then
@@ -336,7 +336,7 @@ function graph.delete_transition (g, from, to)
   if type(to == "number") then to = g.nodes[to] end
   local from_id = from.id
   local to_id = to.id
-  table.remove(from.edges, to_id)
+  from.edges[to_id] = nil
   for i,e in ipairs(g.edges) do
     if e.from.id == from_id and e.to.id == to_id then
       table.remove(g.edges, i)
@@ -361,6 +361,7 @@ end
 -- @return The `rewards` table.
 -- @return The `next` table. 
 function graph.floyd (g)
+  print_trace("Running Floyd algorithm.")
   local n = #g.nodes
   local rewards = graph.generate_table(n, -math.huge)
   -- Use this version for higher performance (but it does not work with
@@ -556,15 +557,25 @@ function graph.update_edge_reward (g, sample)
   if sample.result == "go" then
     local from_node = g.nodes[from_id]
     local edge = from_node.edges[to_id]
-    local old_reward, occ = edge.reward, edge.occurrences
-    -- Update the edge reward to the average of all occurrences.  Note
-    -- that we can use the `initial_edge_occurrences` parameter to
-    -- influence how much the initial estimate is favored initially.
-    local new_reward = old_reward + 1/(occ+1) * (sample.reward - old_reward)
-    print_trace("Updating reward (go): ", from_id, to_id, old_reward, occ, sample.reward, new_reward)
-    edge.reward = new_reward
-    edge.occurrences = edge.occurrences + 1
-    return math.abs(old_reward), math.abs(sample.reward - old_reward)
+    if edge then
+      local old_reward, occ = edge.reward, edge.occurrences
+      -- Update the edge reward to the average of all occurrences.  Note
+      -- that we can use the `initial_edge_occurrences` parameter to
+      -- influence how much the initial estimate is favored initially.
+      local new_reward = old_reward + 1/(occ+1) * (sample.reward - old_reward)
+      print_trace("Updating reward (go): ", from_id, to_id, old_reward, occ, sample.reward, new_reward)
+      edge.reward = new_reward
+      edge.occurrences = edge.occurrences + 1
+      return math.abs(old_reward), math.abs(sample.reward - old_reward)
+    else
+      print_trace("Updating reward (new edge): ", from_id, to_id)
+      local to_node = g.nodes[to_id]
+      edge = {from=from_node, to=to_node, type="edge",
+        dist=dist, reward=sample.reward,
+        occurrences=graph.initial_edge_occurrences}
+      from_node.edges[to_id] = edge
+      g.edges[#g.edges+1] = edge
+    end
   elseif sample.result == "failure" then
     print_trace("Updating reward (failed): ", from_id, to_id)
     graph.delete_transition(g, from_id, to_id)
