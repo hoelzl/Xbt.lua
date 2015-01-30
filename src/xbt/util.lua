@@ -80,6 +80,7 @@ end
 -- @return `true` if `t1` and `t2` have the same value, `false`
 --  otherwise.
 function util.equal(t1, t2, cache)
+  if t1 == t2 then return true end
   cache = cache or {}
   if (type(t1) == "table" and type(t2) == "table") then
     if cache[t1] == t2 then return true end
