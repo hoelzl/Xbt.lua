@@ -43,7 +43,7 @@ function t.test_is_result_2 ()
 end
   
 function t.test_is_result_3 ()
-  assert_false(xbt.is_result(xbt.inactive(false)))
+  assert_false(xbt.is_result(xbt.inactive({false})))
   assert_false(xbt.is_result(xbt.inactive({x = 1})))
   assert_false(xbt.is_result(xbt.running(true)))
   assert_false(xbt.is_result(xbt.succeeded("foo")))
@@ -106,15 +106,4 @@ function t.test_can_continue ()
   assert_true(xbt.can_continue(result))
 end
 
--- Define some actions and action nodes for later tests.
-
-xbt.define_function_name("print-1", function (state)
-  print("print-1", state)
-  return 1
-end)
-xbt.define_function_name("print_and_succeed", function (state)
-  print(state)
-  return xbt.succeeded("Yeah!")
-end)
---]]
 return t

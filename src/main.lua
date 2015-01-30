@@ -124,13 +124,13 @@ local function pick_victim_location (node, path, state)
 end
 xbt.define_function_name("pick_victim_location", pick_victim_location)
 
-local function update_teacher_result (value, data)
+local function update_teacher_result (reward, data)
   local results = data.teacher_results
   local current_teacher = data.current_teacher
   local teacher_result = results[current_teacher.id] or {}
   local n = teacher_result.n or 0
-  local prev_value = teacher_result.value or 0
-  teacher_result.value = prev_value + 1/(n+1) * (value - prev_value)
+  local prev_reward = teacher_result.reward or 0
+  teacher_result.reward = prev_reward + 1/(n+1) * (reward - prev_reward)
   teacher_result.n = n + 1
 end
 
@@ -143,7 +143,7 @@ local function drop_off_victim (node, path, state)
   data.cargo_value = 0
   data.target_node_id = nil
   update_teacher_result(value, data)
-  return xbt.succeeded(0, value)
+  return xbt.succeeded(value)
 end
 xbt.define_function_name("drop_off_victim", drop_off_victim)
 
@@ -305,7 +305,6 @@ end
 local function print_episode (episode)
   print("------------------------------------------------------------------------------------")
   print("Episode " .. episode.id
-    .. " \tvalue:   \t" .. math.round(episode.value) 
     .. " \treward:  \t" .. math.round(episode.reward)
     .. " \tepsilon: \t" .. (math.round(episode.state.epsilon * 100)) / 100)
   for _,et in ipairs(episode.teachers) do
@@ -398,13 +397,12 @@ local function run_simulation (state, scenario, episodes)
   local num_steps = scenario.num_steps
   local episode_steps = num_steps / (num_steps < 1000 and 10 or 100)
   local episode
-  local total_value = 0
   local total_reward = 0
   for i = 1,num_steps do
     if i % 50 == 0 then io.write(".") end
     if i % (50*72) == 0 then print() end
     if i % episode_steps == 1 then
-      episode = {id=i, value=0, reward=0, 
+      episode = {id=i, reward=0, 
         state={movement_rewards=state.movement_rewards, 
                best_moves=state.best_moves,
                epsilon=state.epsilon},
@@ -428,16 +426,14 @@ local function run_simulation (state, scenario, episodes)
     for r = 1,scenario.num_robots do
       local path = state.paths[r]
       local result = xbt.tick(robot_xbt, path:copy(1), state)
-      total_value = total_value + result.value
       total_reward = total_reward + result.reward
-      episode.value = episode.value + result.value
       episode.reward = episode.reward + result.reward
       -- Reset the node, but don't clear its data
       xbt.reset_node(robot_xbt, path, state, false)
     end
   end
   print()
-  return total_reward, total_value
+  return total_reward
 end
 
 local function rescue_scenario (scenario)
@@ -454,10 +450,9 @@ local function rescue_scenario (scenario)
   initialize_teachers(state, scenario)
   initialize_robots(state, scenario)
   local episodes = {}
-  local total_reward, total_value = run_simulation(state, scenario, episodes)
+  local total_reward = run_simulation(state, scenario, episodes)
   print_episodes(episodes)
-  print("Total value   = " .. math.round(total_value)
-    .. ",\t total reward = " .. math.round(total_reward))
+  print("Total reward = " .. math.round(total_reward))
   return episodes, scenario
 end
 

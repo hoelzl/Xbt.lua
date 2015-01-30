@@ -22,47 +22,39 @@ local xbt = {}
 -- if, given more time, they can improve the value they have
 -- previously returned.  Each XBT result carries a `reward` attribute
 -- that indicates the execution reward for the evaluation of the subtree
--- that produces the result.  Succeeded nodes additionally contain a
--- `value` attribute The difference between `reward` and `value` is that
--- _every_ evaluation result has a reward but that only successful
--- results carry a value.  Running node return the reward accumulated so
--- far; their parents could use this to abort them if the accumulated
--- reward is too high.
+-- that produces the result.
 -- 
 -- @section Result-Types
 
 --- Create an XBT result value for inactive nodes.
--- @param reward The reward of executing the node (including all
+-- @param reward The reward for executing the node (including all
 --  descendants).  Default is `0`.
 -- @return An XBT result indicating that `node` is inactive.
 function xbt.inactive (reward)
-  if reward == nil then reward = 0 end
+  reward = reward or 0
   return {status="inactive", continue=true, reward=reward}
 end
 
 --- Create an XBT result value for running nodes.
--- @param reward The reward of executing the node (including all
+-- @param reward The reward for executing the node (including all
 --  descendants).  Default is `0`.
 -- @return An XBT result indicating that the node is running.
 function xbt.running (reward)
-  if reward == nil then reward = 0 end
+  reward = reward or 0
   return {status="running", continue=true, reward=reward}
 end
 
 --- Create an XBT result value for successful nodes.
--- @param reward The reward of executing the node (including all
+-- @param reward The reward for executing the node (including all
 --  descendants).  Default is `0`.
--- @param value The value that was obtained by the node.  Default is
---  `nil`.
--- @param continue Boolean indicating whether `value` can be improved
+-- @param continue Boolean indicating whether `reward` can be improved
 --  by further computation.  Default is `false`.
 -- @return An XBT result indicating that the node has completed
 --  successfully
-function xbt.succeeded (reward, value, continue)
-  if reward == nil then reward = 0 end
+function xbt.succeeded (reward, continue)
+  reward = reward or 0
   continue = continue or false
-  return {status="succeeded", continue=continue, reward=reward,
-    value=value}
+  return {status="succeeded", continue=continue, reward=reward}
 end
 
 --- Create an XBT result value for failed nodes.
@@ -72,7 +64,7 @@ end
 --  failed.  Default is `nil`.
 -- @return An XBT result indicating that the node has failed.
 function xbt.failed (reward, reason)
-  if reward == nil then reward = 0 end
+  reward = reward or 0
   return {status="failed", continue=false, reward=reward,
     reason=reason}
 end
@@ -167,11 +159,13 @@ end
 --
 -- * a `blackboard` for use by the nodes
 --
--- * `node_results`, a table mapping paths to the corresponding result
---   values.
+-- * `node_results`, a table mapping paths to the corresponding XBT
+--   results.
 -- 
--- * `local_data`, a table for storing local data that node want to
---   persist between ticks.
+-- * `local_data`, a table for storing local data that nodes want to
+--   persist between ticks.  This data is cleared when nodes are
+--   deactivated, so data that should persist between runs of the
+--   XBT should be stored in the blackboard.
 --
 -- * `improve`, a Boolean flag that indicates whether nodes that can
 --   improve their values should restart the computation or return
@@ -476,7 +470,7 @@ end
 
 --- Generate a function node.
 -- Function ("fun") nodes encapsulate a function.  The function is
--- called with the node, the path and a state as argument sand has to
+-- called with the node, the path and a state as arguments and has to
 -- return a valid XBT result.  The node and path are mainly useful if
 -- the function has to store local information in the state.  If the
 -- information is for all occurences of the function then `node` can
@@ -511,15 +505,11 @@ xbt.define_node_type("fun", {"fun", "args"}, function (node, path, state)
 -- Action nodes are similar to functions, but they wrap the return
 -- value of the function into a XBT result that indicates that the
 -- function has succeeded and contains the return value of the
--- function as value.  The reward of the call has to be provided as
--- `args.reward` when the node is created; it is the same for all
--- invocations of this node.  Actions should not modify the 
--- `node.args.reward` value to return different rewards; functions that
--- need to return different rewards for different invocations should not
--- be defined as action nodes but rather as `fun` nodes.
+-- function as reward.
 -- @function action
 -- @param fun A function invoked with `node`, `path` and `state` as
---  arguments.  It performs the work of this node.
+--  arguments.  It performs the work of this node and returns a number
+--  that is returned as the result of the action.
 -- @param args The "arguments" for the `fun` parameter.  They are
 --  stored as `node.args` so that they can be accessed by the `fun`
 --  parameter when it is executing.  These arguments are the same for
@@ -534,7 +524,8 @@ xbt.define_node_type("action", {"fun", "args"}, function (node, path, state)
   local args = node.args
   local reward = args and args.reward or 0
   assert(type(reward) == "number", "Action result not a number.")
-  return xbt.succeeded(reward, fun(node, path, state))
+  local res = fun(node, path, state)
+  return xbt.succeeded(res)
 end)
 
 --- Generate a node that wraps a Boolean result.
@@ -563,8 +554,7 @@ xbt.define_node_type("bool", {"fun", "args"}, function (node, path, state)
   local reward = node.args and node.args.reward or 0
   local result = fun(node, path, state)
   if result then
-    local value = node.args and node.args.value or 0
-    return xbt.succeeded(reward, value)
+    return xbt.succeeded(reward)
   else
     return xbt.failed(reward)
   end
@@ -574,14 +564,12 @@ end)
 local function tick_seq_node (node, path, state)
    -- reward and value for this node
   local reward = 0
-  local value = 0
   local children = node.children or {}
   for pos, child in pairs(children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
     -- Update the total accumulated reward/value
     reward = reward + result.reward
-    value = value + (result.value or 0)
     if xbt.is_failed(result) then
       -- A child node has failed, which means that the sequence node
       -- is failed as well and cannot continue.  Prepare for the next
@@ -596,7 +584,7 @@ local function tick_seq_node (node, path, state)
       "Evaluation of seq-node child returned bad result.")
   end
   xbt.deactivate_node(node, path, state)
-  return xbt.succeeded(reward, value)
+  return xbt.succeeded(reward)
 end
 
 --- Generate a sequence node.
@@ -612,21 +600,19 @@ xbt.define_node_type("seq", {"children"}, tick_seq_node)
 local function tick_all_node (node, path, state)
    -- reward and value for this node
   local reward = 0
-  local value = 0
   local children = node.children or {}
   for pos, child in pairs(children) do
     local p = path:copy(pos)
     local result = xbt.tick(child, p, state)
     -- Update the total accumulated reward/value
     reward = reward + result.reward
-    value = value + (result.value or 0)
     if xbt.is_running(result) then
       return xbt.running(reward)
     end
   end
   xbt.deactivate_node(node, path, state)
   -- TODO: Maybe return the result status of the last node?
-  return xbt.succeeded(reward, value)
+  return xbt.succeeded(reward)
 end
 
 --- Generate an all-sequence node.
@@ -672,8 +658,8 @@ xbt.define_node_type("choice", {"children"}, tick_choice_node)
 local function tick_xchoice_node (node, path, state)
   local reward = 0
   local result = nil
-  -- Don't reorder children whild the node is running.
   local child_fun = xbt.lookup_function(node.child_fun)
+  -- Don't reorder children whild the node is running.
   if not xbt.is_running(xbt.result(node, path, state)) then
     node.children = child_fun(node, path, state)
   end
@@ -718,10 +704,10 @@ xbt.define_node_type("xchoice",
   tick_xchoice_node)
 
 --- Epsilon-greedy `child_fun` for `xchoice`.
--- Sort the children of a node and with probability `node.epsilon`
--- swap the first element of the result with another one.
--- The function to generate the sorted list of children is taken
--- from `node.args.sorted_children`.
+-- Sort the children of a node and with probability `state.epsilon`
+-- or `node.args.epsilon` swap the first element of the result with
+-- another one.  The function to generate the sorted list of children
+-- is taken from `node.args.sorted_children`.
 -- @param node The xchoice node.
 -- @param path Path that identifies the instance of the node
 -- @param state The current state of the evaluation.
@@ -756,8 +742,7 @@ local function tick_negate (node, path, state)
   local child_result = xbt.tick(node.child, path, state)
   if xbt.is_failed(child_result) then
     local args = node.args
-    local value = args and args.value or 0
-    return xbt.succeeded(child_result.reward, value)
+    return xbt.succeeded(child_result.reward)
   elseif xbt.is_succeeded(child_result) then
     return xbt.failed(child_result.reward, "Child node succeeded.")
   else
@@ -774,7 +759,7 @@ local function tick_until (node, path, state)
   assert(node.child, "Until node needs a child node.")
   local pred = xbt.lookup_function(node.pred)
   if pred(node, path, state) then
-    return xbt.succeeded(0, (node.args.default_value or 0))
+    return xbt.succeeded(node.args.default_reward or 0)
   end
   local result = xbt.tick(node.child, path, state)
   if pred(node, path, state) then
