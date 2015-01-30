@@ -37,15 +37,15 @@ local function search ()
   local path = xbt_path.new()
   local state = xbt.make_state()
   local res = xbt.tick(searcher, path, state)
-  print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   while not xbt.is_done(res) do
     res = xbt.tick(searcher, path, state)
-    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   end
   -- Show that finished results stay constant
   for _=1,2 do
     res = xbt.tick(searcher, path, state)
-    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   end
 end
 
@@ -55,10 +55,10 @@ local function tick_suppress_failure ()
   local path = xbt_path.new()
   local state = xbt.make_state()
   local res = xbt.tick(node, path, state)
-  print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   while not xbt.is_done(res) do
     res = xbt.tick(node, path, state)
-    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   end
 end
 
@@ -68,10 +68,10 @@ local function tick_negate ()
   local path = xbt_path.new()
   local state = xbt.make_state()
   local res = xbt.tick(node, path, state)
-  print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+  print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   while not xbt.is_done(res) do
     res = xbt.tick(node, path, state)
-    print("result:\t", res.status .. "   ", res.cost .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
   end
 end
 
@@ -82,35 +82,35 @@ local function graph_copy ()
   local gcb2 = graph.copy_badly(g)
   for i=1,#g.edges do
     print("Edge " .. i .. ": \t"
-      .. g.edges[i].cost .. ", \t" .. gc.edges[i].cost .. ", \t"
-      .. gcb1.edges[i].cost .. ", \t" .. gcb2.edges[i].cost)
+      .. g.edges[i].reward .. ", \t" .. gc.edges[i].reward .. ", \t"
+      .. gcb1.edges[i].reward .. ", \t" .. gcb2.edges[i].reward)
   end
 end
 
-local function graph_update_edge_cost ()
+local function graph_update_edge_reward ()
   local g = graph.generate_graph(10, 10, graph.generate_all_edges)
   local gc = graph.copy_badly(g, 50)
-  local sample = {from=1, to=2, cost=g.nodes[1].edges[2].cost}
+  local sample = {from=1, to=2, reward=g.nodes[1].edges[2].reward}
   for i=1,20 do
     print("N = " .. i .. "\t"
-      .. g.edges[1].cost .. ", \t" .. gc.edges[1].cost)
-    graph.update_edge_cost(gc, sample)
+      .. g.edges[1].reward .. ", \t" .. gc.edges[1].reward)
+    graph.update_edge_reward(gc, sample)
   end
 end
 
-local function graph_update_edge_costs ()
+local function graph_update_edge_rewards ()
   local g = graph.generate_graph(10, 10, graph.generate_all_edges)
   local gc = graph.copy_badly(g, 50)
   local samples = {
-    {from=1, to=2, cost=g.nodes[1].edges[2].cost},
-    {from=1, to=3, cost=g.nodes[1].edges[3].cost}}
+    {from=1, to=2, reward=g.nodes[1].edges[2].reward},
+    {from=1, to=3, reward=g.nodes[1].edges[3].reward}}
   for i=1,20 do
     print("N = " .. i .. "\t"
-      .. g.nodes[1].edges[2].cost .. ", \t"
-      .. gc.nodes[1].edges[2].cost .. ", \t"
-      .. g.nodes[1].edges[3].cost .. ", \t"
-      .. gc.nodes[1].edges[3].cost)
-    graph.update_edge_costs(gc, samples)
+      .. g.nodes[1].edges[2].reward .. ", \t"
+      .. gc.nodes[1].edges[2].reward .. ", \t"
+      .. g.nodes[1].edges[3].reward .. ", \t"
+      .. gc.nodes[1].edges[3].reward)
+    graph.update_edge_rewards(gc, samples)
   end
 end
 
@@ -122,6 +122,6 @@ search()
 tick_suppress_failure()
 tick_negate()
 graph_copy()
-graph_update_edge_cost()
-graph_update_edge_costs()
+graph_update_edge_reward()
+graph_update_edge_rewards()
 --]]--

@@ -21,17 +21,17 @@ local assert_nil = lunatest.assert_nil
 local t = {}
 
 function t.test_is_result_1 ()
-  assert_true(xbt.is_result{status="inactive", continue=true, cost=0})
-  assert_false(xbt.is_result{status="inactive", continue=true, cost=true})
-  assert_false(xbt.is_result{status="inactive", continue=false, cost=0})
-  assert_true(xbt.is_result{status="running", continue=true, cost=0})
-  assert_false(xbt.is_result{status="running", continue=false, cost=0})
-  assert_true(xbt.is_result{status="succeeded", continue=true, cost=0})
-  assert_true(xbt.is_result{status="succeeded", continue=false, cost=0})
-  assert_true(xbt.is_result{status="failed", continue=false, cost=0})
-  assert_false(xbt.is_result{status="failed", continue=true, cost=0})
-  assert_false(xbt.is_result{status="foo", continue=true, cost=0})
-  assert_false(xbt.is_result{status="foo", continue=false, cost=0})
+  assert_true(xbt.is_result{status="inactive", continue=true, reward=0})
+  assert_false(xbt.is_result{status="inactive", continue=true, reward=true})
+  assert_false(xbt.is_result{status="inactive", continue=false, reward=0})
+  assert_true(xbt.is_result{status="running", continue=true, reward=0})
+  assert_false(xbt.is_result{status="running", continue=false, reward=0})
+  assert_true(xbt.is_result{status="succeeded", continue=true, reward=0})
+  assert_true(xbt.is_result{status="succeeded", continue=false, reward=0})
+  assert_true(xbt.is_result{status="failed", continue=false, reward=0})
+  assert_false(xbt.is_result{status="failed", continue=true, reward=0})
+  assert_false(xbt.is_result{status="foo", continue=true, reward=0})
+  assert_false(xbt.is_result{status="foo", continue=false, reward=0})
   assert_false(xbt.is_result("succeeded"))
 end
 

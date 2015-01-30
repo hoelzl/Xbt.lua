@@ -159,7 +159,7 @@ local function update_robot_data (node, path, state)
   local t = pick_teacher(node, path, state)
   data.graph = t.graph
   data.victim_locations = t.victim_locations
-  data.movement_costs = t.movement_costs
+  data.movement_rewards = t.movement_rewards
   data.best_moves = t.best_moves
   data.actions = t.actions
   data.to_nodes = t.to_nodes
@@ -243,7 +243,7 @@ local function initialize_graph (state, scenario)
   local actions,to_nodes = graph.make_graph_action_tables(g)
   state.actions = actions
   state.to_nodes = to_nodes
-  state.movement_costs, state.best_moves = graph.floyd(g)
+  state.movement_rewards, state.best_moves = graph.floyd(g)
 end  
 
 local function initialize_teachers (state, scenario)
@@ -251,7 +251,7 @@ local function initialize_teachers (state, scenario)
   for i,error_fun in ipairs(scenario.teachers) do
     -- TODO: Fix teacher representation
     local g = graph.copy_badly(state.graph)
-    local movement_costs, best_moves = graph.floyd(g)
+    local movement_rewards, best_moves = graph.floyd(g)
     local vls = {}
     for i,vl in ipairs(state.victim_locations) do
       -- Ensure that we have at least one victim location.
@@ -264,7 +264,7 @@ local function initialize_teachers (state, scenario)
       id=i,
       graph=g, samples={},
       home_locations=state.home_locations, victim_locations=vls,
-      movement_costs=movement_costs, best_moves=best_moves,
+      movement_rewards=movement_rewards, best_moves=best_moves,
       actions=actions, to_nodes=to_nodes}
   end
   state.teachers = teachers
@@ -306,7 +306,7 @@ local function print_episode (episode)
   print("------------------------------------------------------------------------------------")
   print("Episode " .. episode.id
     .. " \tvalue:   \t" .. math.round(episode.value) 
-    .. " \tcost:    \t" .. math.round(episode.cost)
+    .. " \treward:  \t" .. math.round(episode.reward)
     .. " \tepsilon: \t" .. (math.round(episode.state.epsilon * 100)) / 100)
   for _,et in ipairs(episode.teachers) do
     print_teacher_info(et)
@@ -326,11 +326,11 @@ local function start_episode (state, scenario, episode)
   episode.teachers = {}
   for i,t in ipairs(teachers) do
     local g = t.graph
-    graph.update_edge_costs(g, t.samples)
-    t.movement_costs, t.best_moves = graph.floyd(g)
+    graph.update_edge_rewards(g, t.samples)
+    t.movement_rewards, t.best_moves = graph.floyd(g)
     local et = {id=t.id}
     et.absolute_difference = 
-      graph.absolute_difference(state.movement_costs, t.movement_costs)
+      graph.absolute_difference(state.movement_rewards, t.movement_rewards)
     et.different_choices =
       graph.different_choices(state.best_moves, t.best_moves)
     et.nsamples = #t.samples 
@@ -399,13 +399,13 @@ local function run_simulation (state, scenario, episodes)
   local episode_steps = num_steps / (num_steps < 1000 and 10 or 100)
   local episode
   local total_value = 0
-  local total_cost = 0
+  local total_reward = 0
   for i = 1,num_steps do
     if i % 50 == 0 then io.write(".") end
     if i % (50*72) == 0 then print() end
     if i % episode_steps == 1 then
-      episode = {id=i, value=0, cost=0, 
-        state={movement_costs=state.movement_costs, 
+      episode = {id=i, value=0, reward=0, 
+        state={movement_rewards=state.movement_rewards, 
                best_moves=state.best_moves,
                epsilon=state.epsilon},
         teachers={}}
@@ -422,22 +422,22 @@ local function run_simulation (state, scenario, episodes)
       end
       g.edges = graph.make_short_edge_generator(1.1)(g.nodes)
       state.graph = g
-      state.movement_costs, state.best_moves = graph.floyd(g)
+      state.movement_rewards, state.best_moves = graph.floyd(g)
       state.actions,state.to_nodes = graph.make_graph_action_tables(g)
     end
     for r = 1,scenario.num_robots do
       local path = state.paths[r]
       local result = xbt.tick(robot_xbt, path:copy(1), state)
       total_value = total_value + result.value
-      total_cost = total_cost + result.cost
+      total_reward = total_reward + result.reward
       episode.value = episode.value + result.value
-      episode.cost = episode.cost + result.cost
+      episode.reward = episode.reward + result.reward
       -- Reset the node, but don't clear its data
       xbt.reset_node(robot_xbt, path, state, false)
     end
   end
   print()
-  return total_cost, total_value
+  return total_reward, total_value
 end
 
 local function rescue_scenario (scenario)
@@ -454,10 +454,10 @@ local function rescue_scenario (scenario)
   initialize_teachers(state, scenario)
   initialize_robots(state, scenario)
   local episodes = {}
-  local total_cost, total_value = run_simulation(state, scenario, episodes)
+  local total_reward, total_value = run_simulation(state, scenario, episodes)
   print_episodes(episodes)
   print("Total value   = " .. math.round(total_value)
-    .. ",\t total cost   = " .. math.round(total_cost))
+    .. ",\t total reward = " .. math.round(total_reward))
   return episodes, scenario
 end
 

@@ -15,15 +15,15 @@ local fail_walk_avg_tries = 3
 local function fail_walk (node, path, state)
   print("fw:\t", node.id, "path = ", tostring(path), "state =", state)
   local prev_result = xbt.result(node, path, state)
-  local prev_cost = (xbt.is_running(prev_result) and prev_result.cost) or 0
+  local prev_reward = (xbt.is_running(prev_result) and prev_result.reward) or 0
   if (util.random(fail_walk_avg_tries) == 1) then
-    local cost = prev_cost + util.random()
-    print("\tfw: failed with cost    " .. cost)
-    return xbt.failed(cost, "Fell off a cliff.")
+    local reward = prev_reward + util.random()
+    print("\tfw: failed with reward    " .. reward)
+    return xbt.failed(reward, "Fell off a cliff.")
   else
-    local cost = prev_cost + util.random()
-    print("\tfw: running with cost   " .. cost)
-    return xbt.running(cost)
+    local reward = prev_reward + util.random()
+    print("\tfw: running with reward   " .. reward)
+    return xbt.running(reward)
   end
 end
 
@@ -34,21 +34,21 @@ local random_walk_avg_tries = 5
 local function random_walk (node, path, state)
   print("rw:\t", node.id, "path = ", tostring(path), "state =", state)
   local prev_result = xbt.result(node, path, state)
-  local prev_cost = (xbt.is_running(prev_result) and prev_result.cost) or 0
+  local prev_reward = (xbt.is_running(prev_result) and prev_result.reward) or 0
   if (util.random(random_walk_avg_tries) == 1) then
     if (util.random(2) == 1) then
-      local cost, value = prev_cost + util.random(), util.random()
-      print("\trw: succeeded with cost " .. cost .. ", value " .. value)
-      return xbt.succeeded(cost, value)
+      local reward, value = prev_reward + util.random(), util.random()
+      print("\trw: succeeded with reward " .. reward .. ", value " .. value)
+      return xbt.succeeded(reward, value)
     else
-      local cost = prev_cost + util.random()
-      print("\trw: failed with cost    " .. cost)
-      return xbt.failed(cost, "Fell off a cliff.")
+      local reward = prev_reward + util.random()
+      print("\trw: failed with reward    " .. reward)
+      return xbt.failed(reward, "Fell off a cliff.")
     end
   else
-    local cost = prev_cost + util.random()
-    print("\trw: running with cost   " .. cost)
-    return xbt.running(cost)
+    local reward = prev_reward + util.random()
+    print("\trw: running with reward   " .. reward)
+    return xbt.running(reward)
   end
 end
 
@@ -59,21 +59,21 @@ local search_pattern_success = 5
 local function search_pattern (node, path, state)
   print("sp:\t", node.id, "path = ", tostring(path), "state =", state)
   local prev_result = xbt.result(node, path, state)
-  local prev_cost = (xbt.is_running(prev_result) and prev_result.cost) or 0
+  local prev_reward = (xbt.is_running(prev_result) and prev_result.reward) or 0
   local current_try = xbt.local_data(node, path, state, 1)
   xbt.set_local_data(node, path, state, current_try + 1)
   if (current_try % search_pattern_success == 0) then
-    local cost, value = prev_cost + util.random(), util.random()
-    print("\tsp: succeeded with cost " .. cost .. ", value " .. value)
-    return xbt.succeeded(cost, value)
+    local reward, value = prev_reward + util.random(), util.random()
+    print("\tsp: succeeded with reward " .. reward .. ", value " .. value)
+    return xbt.succeeded(reward, value)
   elseif (util.random(2*search_pattern_success) == 1) then
-    local cost = prev_cost + util.random()
-    print("\tsp: failed with cost    " .. cost)
-    return xbt.failed(cost, "Fell off a cliff.")
+    local reward = prev_reward + util.random()
+    print("\tsp: failed with reward    " .. reward)
+    return xbt.failed(reward, "Fell off a cliff.")
   else
-    local cost = prev_cost + util.random()
-    print("\tsp: running with cost   " .. cost)
-    return xbt.running(cost)
+    local reward = prev_reward + util.random()
+    print("\tsp: running with reward   " .. reward)
+    return xbt.running(reward)
   end
 end
 

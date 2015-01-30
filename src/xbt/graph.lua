@@ -95,7 +95,7 @@ end
 -- towards the initial value, so that the first few samples don't
 -- have an undue effect on the graph if the environment is very
 -- noisy.  Therefore we can adjust how often the update algorithm
--- thinks that it has already seen the initial cost of the edge before
+-- thinks that it has already seen the initial reward of the edge before
 -- the first update.
 graph.initial_edge_occurrences = 1
 
@@ -111,12 +111,12 @@ function graph.generate_all_edges (nodes)
       local n1,n2 = nodes[i], nodes[j]
       local dist = graph.node_dist(n1, n2)
       local edge1 = {from=n1, to=n2, type="edge",
-        dist=dist, cost=dist,
+        dist=dist, reward=dist,
         occurrences=graph.initial_edge_occurrences}
       edges[#edges+1] = edge1
       n1.edges[j] = edge1
       local edge2 = {from=n2, to=n1, type="edge",
-        dist=dist, cost=dist,
+        dist=dist, reward=dist,
         occurrences=graph.initial_edge_occurrences}
       edges[#edges+1] = edge2
       n2.edges[i] = edge2
@@ -146,12 +146,12 @@ function graph.make_short_edge_generator (slack)
         local dist = graph.node_dist(n1, n2)
         if dist <= maxmin_dist * slack then
           local edge1 = {from=n1, to=n2, type="edge",
-            dist=dist, cost=dist,
+            dist=dist, reward=dist,
             occurrences=graph.initial_edge_occurrences}
           edges[#edges+1] = edge1
           n1.edges[j] = edge1
           local edge2 = {from=n2, to=n1, type="edge",
-            dist=dist, cost=dist,
+            dist=dist, reward=dist,
             occurrences=graph.initial_edge_occurrences}
           edges[#edges+1] = edge2
           n2.edges[i] = edge2
@@ -219,7 +219,7 @@ function graph.copy (g)
     local from_id, to_id = e.from.id, e.to.id
     local new_from, new_to = nodes[from_id], nodes[to_id]
     local new_edge = {from=new_from, to=new_to,
-      type=e.type, dist=e.dist, cost=e.cost,
+      type=e.type, dist=e.dist, reward=e.reward,
       occurrences=e.occurrences}
     edges[i] = new_edge
     new_from.edges[to_id] = new_edge
@@ -227,29 +227,29 @@ function graph.copy (g)
   return {nodes=nodes, edges=edges}
 end
 
-local function generate_edges (edges, n1, i, n2, j, cost, occ)
+local function generate_edges (edges, n1, i, n2, j, reward, occ)
   local dist = graph.node_dist(n1, n2)
   local edge1 = {from=n1, to=n2, type="edge",
-    dist=dist, cost=cost,
+    dist=dist, reward=reward,
     occurrences=occ}
   edges[#edges+1] = edge1
   n1.edges[j] = edge1;
   local edge2 = {from=n2, to=n1, type="edge",
-    dist=dist, cost=cost,
+    dist=dist, reward=reward,
     occurrences=occ}
   edges[#edges+1] = edge2
   n2.edges[i] = edge2
 end
 
---- Copy a graph, introducing errors in the edge costs.
+--- Copy a graph, introducing errors in the edge rewards.
 -- @param g The graph to copy.
 -- @param p_del The probability with which existing edges are deleted.
 --  Defaults to 0.25.
 -- @param p_gen The probability with which new edges will be introduced.
 --  Defaults to 0.1.
--- @param err A function that computes the error for the new edge cost,
---  based on the old cost, or the standard deviation of a normal
---  distribution with which the existing costs are modified.
+-- @param err A function that computes the error for the new edge reward,
+--  based on the old reward, or the standard deviation of a normal
+--  distribution with which the existing rewards are modified.
 --  Defaults to 1.
 function graph.copy_badly (g, p_del, p_gen, err)
   p_del = p_del or 0.25
@@ -258,10 +258,10 @@ function graph.copy_badly (g, p_del, p_gen, err)
   if not err then err = 1 end
   if type(err) == "number" then
     if err <= 0 then
-      err_fun = function (cost) return cost end
+      err_fun = function (reward) return reward end
     else
       local sd = dist.normal(0, err or 1)
-      err_fun = function (cost) return cost + sd:sample(util.rng) end
+      err_fun = function (reward) return reward + sd:sample(util.rng) end
     end
   else
     err_fun = err
@@ -278,16 +278,16 @@ function graph.copy_badly (g, p_del, p_gen, err)
       local old_edge = o1.edges[j]
       if old_edge then
         if util.rng:sample() > p_del then
-          -- Don't delete; create new edges with modified cost
-          local cost = err_fun(old_edge.cost or 0)
+          -- Don't delete; create new edges with modified reward
+          local reward = err_fun(old_edge.reward or 0)
           local occ = old_edge.occurrences or graph.initial_edge_occurrences
-          generate_edges(edges, n1, i, n2, j, cost, occ)
+          generate_edges(edges, n1, i, n2, j, reward, occ)
         end
       else
         if util.rng:sample() <= p_gen then
-          local cost = graph.node_dist(n1, n2)
+          local reward = graph.node_dist(n1, n2)
           local occ = graph.initial_edge_occurrences
-          generate_edges(edges, n1, i, n2, j, cost, occ) 
+          generate_edges(edges, n1, i, n2, j, reward, occ) 
         end
       end
     end
@@ -333,10 +333,10 @@ end
 --- Compute the tables for computing all paths in a graph.
 -- Uses the Floyd-Warshall dynamic-programming algorithm to compute
 -- tables `dist` and `next`.  `dist`'s entries at position `[i][j]`
--- contain the (weighted) cost of the cheapes path between nodes `i`
+-- contain the (weighted) reward of the cheapes path between nodes `i`
 -- and `j` (where `i` and `j` are the node ids or, equivalently, their
--- position in the `nodes` array of the graph).  The cost is taken
--- from the transition's `cost` attribute.  The entry of `next` at
+-- position in the `nodes` array of the graph).  The reward is taken
+-- from the transition's `reward` attribute.  The entry of `next` at
 -- this position is the next node on the shortest path between the two
 -- nodes.  These tables are then added to `g` as the `dist` and `next`
 -- attributes; if these attributes already exist they are not taken
@@ -353,7 +353,7 @@ function graph.floyd (g)
   -- local dist = alg.mat(n, n)
   local next = graph.generate_table(n, false)
   for _,e in ipairs(g.edges) do
-    dist[e.from.id][e.to.id] = e.cost
+    dist[e.from.id][e.to.id] = e.reward
     next[e.from.id][e.to.id] = e.to.id
   end
   for k = 1,n do
@@ -474,26 +474,26 @@ function graph.go_action (node, path, state)
   local typeinfo = graph_node.type == "node" and "" or graph_node.type
   print_trace(">>> R" .. string.sub(path:root_path(), 1, 4)
     .. ": Moving from state " .. from .. " to " ..  to 
-    .. " (cost " .. edge.cost - edge.cost%1 .. "). \t"  .. typeinfo)
+    .. " (reward " .. edge.reward - edge.reward%1 .. "). \t"  .. typeinfo)
   io.flush()
   --]]--
   local samples = data.samples
   if samples then
-    local cost = edge.cost
-    data.samples[#samples+1] = {from=from, to=to, cost=cost}
+    local reward = edge.reward
+    data.samples[#samples+1] = {from=from, to=to, reward=reward}
   end
-  return xbt.succeeded(cost, 0)
+  return xbt.succeeded(reward, 0)
 end
 
 xbt.define_function_name("go", graph.go_action) 
 
 function graph.make_go_action (edge)
   local target_node = edge.to
-  local cost = edge.cost
+  local reward = edge.reward
   local value = target_node.value or 0
   local action = xbt.fun("go",
     {from_id=edge.from.id, to_id=target_node.id, value=value},
-    cost)
+    reward)
   return action
 end
 
@@ -528,22 +528,22 @@ function graph.make_graph_action_tables (g)
   return actions, to_nodes
 end
 
---- Update the cost of an edge based on a sample value.
-function graph.update_edge_cost (g, sample)
+--- Update the reward of an edge based on a sample value.
+function graph.update_edge_reward (g, sample)
   local from_id, to_id = sample.from, sample.to
   local from_node = g.nodes[from_id]
   local edge = from_node.edges[to_id]
-  local old_cost, occ = edge.cost, edge.occurrences
-  -- Update the edge cost to the average of all occurrences.  Note
+  local old_reward, occ = edge.reward, edge.occurrences
+  -- Update the edge reward to the average of all occurrences.  Note
   -- that we can use the `initial_edge_occurrences` parameter to
   -- influence how much the initial estimate is favored initially.
-  edge.cost = old_cost + 1/(occ+1) * (sample.cost - old_cost) 
+  edge.reward = old_reward + 1/(occ+1) * (sample.reward - old_reward) 
 end
 
-function graph.update_edge_costs (g, samples)
-  local update_edge_cost = graph.update_edge_cost
+function graph.update_edge_rewards (g, samples)
+  local update_edge_reward = graph.update_edge_reward
   for _,sample in ipairs(samples) do
-    update_edge_cost(g, sample)
+    update_edge_reward(g, sample)
   end
 end
 
