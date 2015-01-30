@@ -305,13 +305,19 @@ local function print_teacher_info (episode_teacher)
     .. " \tdifference: \t" .. math.round(episode_teacher.absolute_difference))
 end
 
+local print_reward_only = false
+
 local function print_episode (episode)
-  print("------------------------------------------------------------------------------------")
-  print("Episode " .. episode.id
-    .. " \treward:  \t" .. math.round(episode.reward)
-    .. " \tepsilon: \t" .. (math.round(episode.state.epsilon * 100)) / 100)
-  for _,et in ipairs(episode.teachers) do
-    print_teacher_info(et)
+  if print_reward_only then
+    print(episode.reward)
+  else
+    print("------------------------------------------------------------------------------------")
+    print("Episode " .. episode.id
+      .. " \treward:  \t" .. math.round(episode.reward)
+      .. " \tepsilon: \t" .. (math.round(episode.state.epsilon * 100)) / 100)
+    for _,et in ipairs(episode.teachers) do
+      print_teacher_info(et)
+    end
   end
 end
 
@@ -319,7 +325,9 @@ local function print_episodes (episodes)
   for i,e in ipairs(episodes) do
     print_episode(e)
   end
-  print("-------------------------------------------------------------------------------------")
+  if not print_reward_only then
+    print("-------------------------------------------------------------------------------------")
+  end
 end
 
 local function start_episode (state, scenario, episode)
@@ -346,7 +354,7 @@ local function start_episode (state, scenario, episode)
   local eps = state.epsilon
   if eps > state.epsilon_min then
     if update_ratio then
-      state.epsilon = math.min(0.75, math.pow(update_ratio, 0.5))
+      state.epsilon = math.min(0.75, math.pow(update_ratio, 0.2))
     else 
       state.epsilon = eps * eps -- * eps
     end
@@ -359,9 +367,9 @@ local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
     damage, teachers_learn)
-  num_robots = num_robots or 1 -- 25
-  num_nodes = num_nodes or 15 -- 100
-  num_steps = num_steps or 2000 -- 5000
+  num_robots = num_robots or 25 -- 25
+  num_nodes = num_nodes or 100 -- 100
+  num_steps = num_steps or 5000 -- 5000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
