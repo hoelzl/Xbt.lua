@@ -678,7 +678,7 @@ local function tick_xchoice_node (node, path, state)
       return xbt.running(reward)
     end
     assert(xbt.is_failed(result),
-      "Evaluation of choice node returned bad result.")
+      "Evaluation of xchoice node returned bad result.")
   end
   update_fun(node, path, state, result)
   xbt.deactivate_node(node, path, state)

@@ -244,18 +244,18 @@ end
 --- Copy a graph, introducing errors in the edge rewards.
 -- @param g The graph to copy.
 -- @param p_del The probability with which existing edges are deleted.
---  Defaults to 0.25.
+--  Defaults to 0.5.
 -- @param p_gen The probability with which new edges will be introduced.
---  Defaults to 0.1.
+--  Defaults to 0.25.
 -- @param err A function that computes the error for the new edge reward,
 --  based on the old reward, or the standard deviation of a normal
 --  distribution with which the existing rewards are modified.
---  Defaults to 1.
+--  Defaults to 1/4 the diameter of `g`.
 function graph.copy_badly (g, p_del, p_gen, err)
-  p_del = p_del or 0.25
+  p_del = p_del or 0.5
   p_gen = p_gen or 0.1
   local err_fun
-  if not err then err = 1 end
+  if not err then err = graph.diameter(g.nodes) / 4 end
   if type(err) == "number" then
     if err <= 0 then
       err_fun = function (reward) return reward end
@@ -459,30 +459,36 @@ graph.use_global_go_action = true
 
 function graph.go_action (node, path, state)
   local data = xbt.local_data(node, path:root_path(), state)
-  local graph = data.graph or state.graph
-  local from = data.current_node_id
-  assert(from == node.args.from_id,
+  -- Don't use data.graph, since we want to use the "real-world" graph, not
+  -- the one the robot thinks it has. 
+  local graph = state.graph
+  local from_id = data.current_node_id
+  assert(from_id == node.args.from_id,
     "Performing a transition from wrong start node.")
-  local to = node.args.to_id
-  local graph_node = graph.nodes[to]
-  local edge = graph.nodes[node.args.from_id].edges[node.args.to_id]
+  local to_id = node.args.to_id
+  local edge = graph.nodes[from_id].edges[to_id]
   if not edge then
+    print_trace(">>> R" .. string.sub(path.id, 1, 4)
+      .. " tried to perform an invalid move to "
+      .. to_id .. ".")
+    io.flush()
     return xbt.failed(0)
   end
-  data.current_node_id = to
-  --[[--
+  data.current_node_id = to_id
+  ---[[--
+  local graph_node = graph.nodes[to_id]
   local typeinfo = graph_node.type == "node" and "" or graph_node.type
-  print_trace(">>> R" .. string.sub(path:root_path(), 1, 4)
-    .. ": Moving from state " .. from .. " to " ..  to 
+  print_trace(">>> R" .. string.sub(path.id, 1, 4)
+    .. ": Moving from state " .. from_id .. " to " ..  to_id 
     .. " (reward " .. edge.reward - edge.reward%1 .. "). \t"  .. typeinfo)
   io.flush()
   --]]--
   local samples = data.samples
   if samples then
     local reward = edge.reward
-    data.samples[#samples+1] = {from=from, to=to, reward=reward}
+    data.samples[#samples+1] = {from_id=from_id, to_id=to_id, reward=reward}
   end
-  return xbt.succeeded(reward, 0)
+  return xbt.succeeded(reward)
 end
 
 xbt.define_function_name("go", graph.go_action) 
@@ -530,14 +536,17 @@ end
 
 --- Update the reward of an edge based on a sample value.
 function graph.update_edge_reward (g, sample)
-  local from_id, to_id = sample.from, sample.to
+  local from_id, to_id = sample.from_id, sample.to_id
   local from_node = g.nodes[from_id]
   local edge = from_node.edges[to_id]
   local old_reward, occ = edge.reward, edge.occurrences
   -- Update the edge reward to the average of all occurrences.  Note
   -- that we can use the `initial_edge_occurrences` parameter to
   -- influence how much the initial estimate is favored initially.
-  edge.reward = old_reward + 1/(occ+1) * (sample.reward - old_reward) 
+  local new_reward = old_reward + 1/(occ+1) * (sample.reward - old_reward)
+  print_trace("Updating reward: ", from_id, to_id, old_reward, occ, sample.reward, new_reward)
+  edge.reward = new_reward
+  edge.occurrences = edge.occurrences + 1
 end
 
 function graph.update_edge_rewards (g, samples)

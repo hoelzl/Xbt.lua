@@ -89,7 +89,7 @@ local function pick_up_victim (node, path, state)
   local graph_node = data.graph.nodes[data.current_node_id]
   data.carrying = data.carrying + 1
   data.cargo_value = data.cargo_value + (graph_node.value or 1000)
-  return xbt.succeeded(10, 0)
+  return xbt.succeeded(10)
 end
 xbt.define_function_name("pick_up_victim", pick_up_victim)
 
@@ -248,9 +248,9 @@ end
 
 local function initialize_teachers (state, scenario)
   local teachers = {}
-  for i,error_fun in ipairs(scenario.teachers) do
+  for i,t in ipairs(scenario.teachers) do
     -- TODO: Fix teacher representation
-    local g = graph.copy_badly(state.graph)
+    local g = graph.copy_badly(state.graph, t.p_del, t.p_gen, t.err)
     local movement_rewards, best_moves = graph.floyd(g)
     local vls = {}
     for i,vl in ipairs(state.victim_locations) do
@@ -325,8 +325,10 @@ local function start_episode (state, scenario, episode)
   episode.teachers = {}
   for i,t in ipairs(teachers) do
     local g = t.graph
-    graph.update_edge_rewards(g, t.samples)
-    t.movement_rewards, t.best_moves = graph.floyd(g)
+    if scenario.teachers_learn then
+      graph.update_edge_rewards(g, t.samples)
+      t.movement_rewards, t.best_moves = graph.floyd(g)
+    end
     local et = {id=t.id}
     et.absolute_difference = 
       graph.absolute_difference(state.movement_rewards, t.movement_rewards)
@@ -338,7 +340,7 @@ local function start_episode (state, scenario, episode)
   end
   local eps = state.epsilon
   if eps > state.epsilon_min then
-    state.epsilon = eps * eps * eps
+    state.epsilon = eps * eps -- * eps
   else
     state.epsilon = state.epsilon_min
   end
@@ -347,7 +349,7 @@ end
 local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
-    damage)
+    damage, teachers_learn)
   num_robots = num_robots or 25 -- 25
   num_nodes = num_nodes or 100 -- 100
   num_steps = num_steps or 5000 -- 5000
@@ -357,14 +359,15 @@ local function make_scenario (
     local nv = victim_nodes
     victim_nodes = {}
     for i=1,nv do
-      victim_nodes[i] = 10000
+      victim_nodes[i] = 1000
     end
   end
   diameter = diameter or 500
-  teachers = teachers or {20}
-  epsilon = epsilon or 0.99999999
-  epsilon_min = epsilon_min or 0.25
+  teachers = teachers or {{}}
+  epsilon = epsilon or 0.999999999
+  epsilon_min = epsilon_min or 0.2
   damage = damage or false
+  teachers_learn = teachers_learn
   
   return {
     num_robots=num_robots, num_nodes=num_nodes,
@@ -381,11 +384,11 @@ end
 local default_scenario
   = make_scenario()
 local perfect_info_scenario
-  = make_scenario(nil, nil, nil, nil, nil, nil, {function (c) return c end}, 0, 0)
+  = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, false, false)
 local damage_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, true)
 local perfect_info_damage_scenario
-  = make_scenario(nil, nil, nil, nil, nil, nil, {function (c) return c end}, 0, 0, true)
+  = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, true, false)
 
 local current_random_seed = tostring(util.rng)
 default_scenario.random_seed = current_random_seed
@@ -413,12 +416,7 @@ local function run_simulation (state, scenario, episodes)
     end
     if scenario.damage and i == math.floor(num_steps / 4) then
       print("Damaging graph!")
-      local g = graph.copy_badly(state.graph, 10)
-      g.edges = {}
-      for _,n in ipairs(g.nodes) do
-        n.edges = {}
-      end
-      g.edges = graph.make_short_edge_generator(1.1)(g.nodes)
+      local g = graph.copy_badly(state.graph, 1, 0.8)
       state.graph = g
       state.movement_rewards, state.best_moves = graph.floyd(g)
       state.actions,state.to_nodes = graph.make_graph_action_tables(g)
@@ -463,12 +461,12 @@ local function main()
   -- rescue_scenario()
 --  print("Perfect info:")
 --  rescue_scenario(perfect_info_scenario)
-  print("Default:")
-  rescue_scenario(default_scenario)
---  print("Perfect info with damage:")
---  rescue_scenario(perfect_info_damage_scenario)
---  print("Default with damage:")
---  rescue_scenario(damage_scenario)
+--  print("Default:")
+--  rescue_scenario(default_scenario)
+  print("Perfect info with damage:")
+  rescue_scenario(perfect_info_damage_scenario)
+  print("Default with damage:")
+  rescue_scenario(damage_scenario)
   print("Done!")
 end
 

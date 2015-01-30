@@ -37,15 +37,15 @@ local function search ()
   local path = xbt_path.new()
   local state = xbt.make_state()
   local res = xbt.tick(searcher, path, state)
-  print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+  print("result:\t", res.status .. "   ", res.reward)
   while not xbt.is_done(res) do
     res = xbt.tick(searcher, path, state)
-    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward)
   end
   -- Show that finished results stay constant
   for _=1,2 do
     res = xbt.tick(searcher, path, state)
-    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward)
   end
 end
 
@@ -55,10 +55,10 @@ local function tick_suppress_failure ()
   local path = xbt_path.new()
   local state = xbt.make_state()
   local res = xbt.tick(node, path, state)
-  print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+  print("result:\t", res.status .. "   ", res.reward)
   while not xbt.is_done(res) do
     res = xbt.tick(node, path, state)
-    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward)
   end
 end
 
@@ -68,10 +68,10 @@ local function tick_negate ()
   local path = xbt_path.new()
   local state = xbt.make_state()
   local res = xbt.tick(node, path, state)
-  print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+  print("result:\t", res.status .. "   ", res.reward)
   while not xbt.is_done(res) do
     res = xbt.tick(node, path, state)
-    print("result:\t", res.status .. "   ", res.reward .. "  ", res.value)
+    print("result:\t", res.status .. "   ", res.reward)
   end
 end
 
