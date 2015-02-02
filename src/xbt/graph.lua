@@ -229,6 +229,8 @@ end
 
 local function generate_edges (edges, n1, i, n2, j, reward, occ)
   local dist = graph.node_dist(n1, n2)
+  reward = reward or - dist
+  occ = occ or graph.initial_edge_occurrences
   local edge1 = {from=n1, to=n2, type="edge",
     dist=dist, reward=reward,
     occurrences=occ}
@@ -251,11 +253,13 @@ end
 --  based on the old reward, or the standard deviation of a normal
 --  distribution with which the existing rewards are modified.
 --  Defaults to 1/20 the diameter of `g`.
-function graph.copy_badly (g, p_del, p_gen, err)
+-- @param connect If truthy ensure that the graph remains connected.
+--  This is currently an expensive operation.
+function graph.copy_badly (g, p_del, p_gen, err, connect)
   p_del = p_del or 0.1
   p_gen = p_gen or 0.05
   local err_fun
-  if not err then err = graph.diameter(g.nodes) / 20 end
+  if not err then err = graph.diameter(g.nodes) / 50 end
   if type(err) == "number" then
     if err <= 0 then
       err_fun = function (reward) return reward end
@@ -288,6 +292,17 @@ function graph.copy_badly (g, p_del, p_gen, err)
           local reward = -graph.node_dist(n1, n2)
           local occ = graph.initial_edge_occurrences
           generate_edges(edges, n1, i, n2, j, reward, occ) 
+        end
+      end
+    end
+  end
+  if connect then
+    local g = {nodes=nodes, edges=edges}
+    local rewards,moves = graph.floyd(g)
+    for i=#nodes,2,-1 do
+      for j=i-1,1,-1 do
+        if not moves[i][j] then
+          generate_edges(edges, nodes[i], i, nodes[j], j)
         end
       end
     end
@@ -563,12 +578,13 @@ function graph.update_edge_reward (g, sample)
       -- that we can use the `initial_edge_occurrences` parameter to
       -- influence how much the initial estimate is favored initially.
       local new_reward = old_reward + 1/(occ+1) * (sample.reward - old_reward)
-      print_trace("Updating reward (go): ", from_id, to_id, old_reward, occ, sample.reward, new_reward)
+      print_trace("Updating reward (go):      " .. from_id .. "->" .. to_id
+        .. " (" .. occ .. ") " .. old_reward, sample.reward, new_reward)
       edge.reward = new_reward
       edge.occurrences = edge.occurrences + 1
       return math.abs(old_reward), math.abs(sample.reward - old_reward)
     else
-      print_trace("Updating reward (new edge): ", from_id, to_id)
+      print_trace("Updating reward (new edge): " .. from_id .. "->" .. to_id)
       local to_node = g.nodes[to_id]
       edge = {from=from_node, to=to_node, type="edge",
         dist=dist, reward=sample.reward,
@@ -577,7 +593,7 @@ function graph.update_edge_reward (g, sample)
       g.edges[#g.edges+1] = edge
     end
   elseif sample.result == "failure" then
-    print_trace("Updating reward (failed): ", from_id, to_id)
+    print_trace("Updating reward (failed): " .. from_id .. "->" .. to_id)
     graph.delete_transition(g, from_id, to_id)
   else
   end

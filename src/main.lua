@@ -67,9 +67,13 @@ local function has_located_victim (node, path, state)
   end
   local node = data.graph.nodes[cni]
   assert(node, "Could not find node " .. cni)
-  local res = node.type == "victim"
-  print_yes_or_no("R" .. string.sub(path.id, 1, 4) .. ": " ..
-    "Have I located a victim?", res)
+  -- TODO: Remove hard-coded probability
+  local victim = node.type == "victim"
+  print_yes_or_no("R" .. string.sub(path.id, 1, 4) .. ": "
+    .. "Am I at a victim location?", res)
+  local res = victim and util.rng:sample() < 0.3
+  print_yes_or_no("R" .. string.sub(path.id, 1, 4) .. ": "
+    ..  "Have I located a victim?", res)
   return res
 end
 xbt.define_function_name("has_located_victim", has_located_victim)
@@ -236,7 +240,7 @@ end
 local function initialize_graph (state, scenario)
   local g = graph.generate_graph(scenario.num_nodes, 
     scenario.diameter, graph.make_short_edge_generator(1))
-  g = graph.copy_badly(g, 0.6, 0.25, 0)
+  g = graph.copy_badly(g, 0.9, 0.1, 0, true)
   print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
   state.graph = g
   local hls, vls = assign_node_types(g, scenario.num_home_nodes, scenario.victim_nodes)
@@ -354,7 +358,7 @@ local function start_episode (state, scenario, episode)
   local eps = state.epsilon
   if eps > state.epsilon_min then
     if update_ratio then
-      state.epsilon = math.min(0.75, math.pow(update_ratio, 0.2))
+      state.epsilon = math.min(1.0, 10*math.pow(update_ratio, 0.5))
     else 
       state.epsilon = eps * eps -- * eps
     end
@@ -369,14 +373,14 @@ local function make_scenario (
     damage, teachers_learn)
   num_robots = num_robots or 25 -- 25
   num_nodes = num_nodes or 100 -- 100
-  num_steps = num_steps or 5000 -- 5000
+  num_steps = num_steps or 5000 -- 15000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
     local nv = victim_nodes
     victim_nodes = {}
     for i=1,nv do
-      victim_nodes[i] = 100000
+      victim_nodes[i] = 10000
     end
   end
   diameter = diameter or 500
@@ -408,9 +412,13 @@ local default_scenario
 local perfect_info_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, false, false)
 local damage_scenario
-  = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, true)
+  = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, "once")
 local perfect_info_damage_scenario
-  = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, true, false)
+  = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, "once", false)
+local multi_damage_scenario
+  = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, "multi")
+local perfect_info_multi_damage_scenario
+  = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, "multi", false)
 
 local current_random_seed = tostring(util.rng)
 default_scenario.random_seed = current_random_seed
@@ -436,9 +444,18 @@ local function run_simulation (state, scenario, episodes)
       episodes[#episodes+1] = episode
       start_episode(state, scenario, episode)
     end
-    if scenario.damage and i == math.floor(num_steps / 4) then
-      print("Damaging graph!")
-      local g = graph.copy_badly(state.graph, 0.75, 0.5, 0)
+    -- TODO: Clean up the damaging
+    if scenario.damage == "once" and i == math.floor(num_steps / 4) then
+      print("Damaging graph (once)!")
+      local g = graph.copy_badly(state.graph, 0.5, 0.1, 0.5, true)
+      state.graph = g
+      state.movement_rewards, state.best_moves = graph.floyd(g)
+      state.actions,state.to_nodes = graph.make_graph_action_tables(g)
+      print("Navigation graph has " .. #g.nodes .. " nodes and " .. #g.edges .. " edges.")
+    end
+    if scenario.damage == "multi" and i%math.floor(num_steps/10) == 0 then
+      print("Damaging graph (multi)!")
+      local g = graph.copy_badly(state.graph, 0.15, 0.025, 0.25, true)
       state.graph = g
       state.movement_rewards, state.best_moves = graph.floyd(g)
       state.actions,state.to_nodes = graph.make_graph_action_tables(g)
@@ -481,7 +498,6 @@ end
 --- Run the rescue scenario.
 local function main()
   print("XBTs are ready to go.")
-  -- rescue_scenario()
   print("Perfect info:")
   rescue_scenario(perfect_info_scenario)
   print("Default:")
@@ -490,6 +506,10 @@ local function main()
   rescue_scenario(perfect_info_damage_scenario)
   print("Default with damage:")
   rescue_scenario(damage_scenario)
+  print("Perfect info with multiple damage:")
+  rescue_scenario(perfect_info_multi_damage_scenario)
+  print("Default with multiple damage:")
+  rescue_scenario(multi_damage_scenario)
   print("Done!")
 end
 
