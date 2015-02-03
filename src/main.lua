@@ -197,7 +197,15 @@ local function go_actions (node, path, state)
           break
         end
       end
-      -- assert(res[1].args.to_id == next_node_id)
+      if (res[1].args.to_id ~= next_node_id) then
+        -- The supposedly best node is not valid.  Register a failure
+        local reward = -(graph.failure_cost or 100)
+        data.samples[#data.samples+1] = {
+          result="failure", 
+          from_id=cni, 
+          to_id=next_node_id, 
+          reward=reward}        
+      end
     end
   end
   return res
@@ -305,7 +313,7 @@ end
 local function print_teacher_info (episode_teacher)
   print("    Teacher " .. episode_teacher.id
     .. " \tsamples: \t" .. episode_teacher.nsamples
-    .. " \tbad choices: \t" .. episode_teacher.different_choices
+    .. " \tbad choices: \t" .. episode_teacher.num_different_choices
     .. " \tdifference: \t" .. math.round(episode_teacher.absolute_difference))
 end
 
@@ -349,7 +357,7 @@ local function start_episode (state, scenario, episode)
     local et = {id=t.id}
     et.absolute_difference = 
       graph.absolute_difference(state.movement_rewards, t.movement_rewards)
-    et.different_choices =
+    et.num_different_choices, et.different_choices =
       graph.different_choices(state.best_moves, t.best_moves)
     et.nsamples = #t.samples 
     t.samples = {}
@@ -358,9 +366,9 @@ local function start_episode (state, scenario, episode)
   local eps = state.epsilon
   if eps > state.epsilon_min then
     if update_ratio then
-      state.epsilon = math.min(1.0, 10*math.pow(update_ratio, 0.5))
-    else 
-      state.epsilon = eps * eps -- * eps
+      state.epsilon = math.min(0.8, 25*eps*math.pow(update_ratio, 0.6))
+    else
+      state.epsilon = eps * eps
     end
   else
     state.epsilon = state.epsilon_min
@@ -371,9 +379,9 @@ local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
     damage, teachers_learn)
-  num_robots = num_robots or 25 -- 25
-  num_nodes = num_nodes or 100 -- 100
-  num_steps = num_steps or 5000 -- 15000
+  num_robots = num_robots or 50 -- 50
+  num_nodes = num_nodes or 200 -- 200
+  num_steps = num_steps or 25000 -- 25000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
   if type(victim_nodes) == "number" then
@@ -498,16 +506,16 @@ end
 --- Run the rescue scenario.
 local function main()
   print("XBTs are ready to go.")
-  print("Perfect info:")
-  rescue_scenario(perfect_info_scenario)
+--  print("Perfect info:")
+--  rescue_scenario(perfect_info_scenario)
   print("Default:")
   rescue_scenario(default_scenario)
-  print("Perfect info with damage:")
-  rescue_scenario(perfect_info_damage_scenario)
+--  print("Perfect info with damage:")
+--  rescue_scenario(perfect_info_damage_scenario)
   print("Default with damage:")
   rescue_scenario(damage_scenario)
-  print("Perfect info with multiple damage:")
-  rescue_scenario(perfect_info_multi_damage_scenario)
+--  print("Perfect info with multiple damage:")
+--  rescue_scenario(perfect_info_multi_damage_scenario)
   print("Default with multiple damage:")
   rescue_scenario(multi_damage_scenario)
   print("Done!")

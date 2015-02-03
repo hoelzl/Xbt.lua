@@ -351,12 +351,20 @@ function graph.delete_transition (g, from, to)
   if type(to == "number") then to = g.nodes[to] end
   local from_id = from.id
   local to_id = to.id
+  local to_remove = from.edges[to_id]
   from.edges[to_id] = nil
-  for i,e in ipairs(g.edges) do
-    if e.from.id == from_id and e.to.id == to_id then
+  for i=1,#g.edges do
+    local e = g.edges[i]
+    if e and e.from.id == from_id and e.to.id == to_id then
+      assert(e == to_remove, "Removing two different edges")
       table.remove(g.edges, i)
-      break
     end
+  end
+  for i,e in pairs(from.edges) do
+    assert(not (e.from.id == from_id and e.to.id == to_id))
+  end
+  for i,e in ipairs(g.edges) do
+    assert(not(e.from.id == from_id and e.to.id == to_id))
   end
 end
 
@@ -381,6 +389,7 @@ function graph.floyd (g)
   local rewards = graph.generate_table(n, -math.huge)
   -- Use this version for higher performance (but it does not work with
   -- the debugger, unfortunately.
+  -- TODO: Initialize rewards
   -- local rewards = alg.mat(n, n)
   local next = graph.generate_table(n, false)
   for _,e in ipairs(g.edges) do
@@ -417,15 +426,16 @@ end
 
 --- Compute the number of different choices for two `next` tables.
 function graph.different_choices (next1, next2)
-  local res = 0
+  local res,choices = 0,{}
   for i,n in ipairs(next1) do
     for j,v in ipairs(n) do
       if v ~= next2[i][j] then
         res = res + 1
+        choices[#choices+1] = {i,j}
       end
     end
   end
-  return res
+  return res,choices
 end
 
 --- Compute the cheapest path between nodes in a graph.
@@ -591,10 +601,12 @@ function graph.update_edge_reward (g, sample)
         occurrences=graph.initial_edge_occurrences}
       from_node.edges[to_id] = edge
       g.edges[#g.edges+1] = edge
+      return 1,math.huge
     end
   elseif sample.result == "failure" then
     print_trace("Updating reward (failed): " .. from_id .. "->" .. to_id)
     graph.delete_transition(g, from_id, to_id)
+    return 1,math.huge
   else
   end
 end
