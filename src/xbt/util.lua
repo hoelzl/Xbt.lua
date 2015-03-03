@@ -77,6 +77,7 @@ end
 -- Ignoeres metatables.
 -- @param t1 A table.
 -- @param t2 A table.
+-- @param cache A cache for values that have already been compared
 -- @return `true` if `t1` and `t2` have the same value, `false`
 --  otherwise.
 function util.equal(t1, t2, cache)
