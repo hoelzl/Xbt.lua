@@ -15,12 +15,16 @@ util.rng = prng.std()
 
 --- Generate a random bounded integer.
 -- The generated integer is between `m` and `n` (inclusive) if two
--- arguments are provided, otherwise it is between `1` and `n`. 
+-- arguments are provided, otherwise it is between `1` and `n`.  If no
+-- argument is provided returns a random floating point number.
 -- @param m The lower bound of the generated numbers (inclusive) if
 --  a second argument is provided, otherwise the upper bound.
 -- @param n The upper bound of the generated number if an argument is
 --  provided.
 function util.random (m, n)
+  if not m then
+    return util.rng:sample()
+  end
   if not n then
     m,n = 1,m
   end

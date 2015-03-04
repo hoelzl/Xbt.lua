@@ -26,7 +26,6 @@ local function fail_walk (node, path, state)
     return xbt.running(reward)
   end
 end
-
 nodes.fail_walk = xbt.fun(fail_walk)
 
 local random_walk_avg_tries = 5
@@ -51,7 +50,6 @@ local function random_walk (node, path, state)
     return xbt.running(reward)
   end
 end
-
 nodes.random_walk = xbt.fun(random_walk)
 
 local search_pattern_success = 5
@@ -103,10 +101,5 @@ nodes.dual_searcher_1 = xbt.seq({
 nodes.dual_searcher_2 = xbt.seq({
   nodes.search_pattern, nodes.random_walk
 })
-
-
-----------------------------------------------------------
--- Generate actions for a graph
--- 
 
 return nodes

@@ -1,6 +1,7 @@
 --- Example file for the XBT module.
--- Currently this file is mostly useful for interactive
--- debugging in LDT.
+-- This file contains some functions that are used in the
+-- quickstart tutorial.
+-- 
 -- @copyright © 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
@@ -15,7 +16,50 @@ local tablex = require("pl.tablex")
 local math = require("sci.math")
 local prng = require("sci.prng")
 
-local function navigate_graph ()
+local ex = {}
+
+
+function ex.graph_copy ()
+  local g = graph.generate_graph(10, 10, graph.make_short_edge_generator(1.5))
+  local gc = graph.copy(g)
+  local gcb1 = graph.copy_badly(g, 1)
+  local gcb2 = graph.copy_badly(g)
+  for i=1,#g.edges do
+    print("Edge " .. i .. ": \t"
+      .. g.edges[i].reward .. ", \t" .. gc.edges[i].reward .. ", \t"
+      .. gcb1.edges[i].reward .. ", \t" .. gcb2.edges[i].reward)
+  end
+end
+
+function ex.graph_update_edge_reward ()
+  local g = graph.generate_graph(10, 10, graph.generate_all_edges)
+  local gc = graph.copy_badly(g, 50)
+  local sample = {from=1, to=2, reward=g.nodes[1].edges[2].reward}
+  for i=1,20 do
+    print("N = " .. i .. "\t"
+      .. g.edges[1].reward .. ", \t" .. gc.edges[1].reward)
+    graph.update_edge_reward(gc, sample)
+  end
+end
+
+function ex.graph_update_edge_rewards ()
+  local g = graph.generate_graph(10, 10, graph.generate_all_edges)
+  local gc = graph.copy_badly(g, 50)
+  local samples = {
+    {from=1, to=2, reward=g.nodes[1].edges[2].reward},
+    {from=1, to=3, reward=g.nodes[1].edges[3].reward}}
+  for i=1,20 do
+    print("N = " .. i .. "\t"
+      .. g.nodes[1].edges[2].reward .. ", \t"
+      .. gc.nodes[1].edges[2].reward .. ", \t"
+      .. g.nodes[1].edges[3].reward .. ", \t"
+      .. gc.nodes[1].edges[3].reward)
+    graph.update_edge_rewards(gc, samples)
+  end
+end
+
+
+function ex.navigate_graph ()
   print("Navigating graph...")
   local g = graph.generate_graph(100, 500, graph.make_short_edge_generator(1.2))
   print("Diameter:        ", graph.diameter(g.nodes))
@@ -31,7 +75,7 @@ local function navigate_graph ()
   print("Action table sizes: ", #a, #t)
 end
 
-local function search ()
+function ex.search ()
   print("Searching...")  
   local searcher = nodes.searcher
   local path = xbt_path.new()
@@ -49,7 +93,7 @@ local function search ()
   end
 end
 
-local function tick_suppress_failure ()
+function ex.tick_suppress_failure ()
   print("Ticking suppressing failures...")
   local node = xbt.suppress_failure(nodes.searcher)
   local path = xbt_path.new()
@@ -62,7 +106,7 @@ local function tick_suppress_failure ()
   end
 end
 
-local function tick_negate ()
+function ex.tick_negate ()
   print("Ticking negated node...")
   local node = xbt.negate(nodes.searcher)
   local path = xbt_path.new()
@@ -75,53 +119,15 @@ local function tick_negate ()
   end
 end
 
-local function graph_copy ()
-  local g = graph.generate_graph(10, 10, graph.make_short_edge_generator(1.5))
-  local gc = graph.copy(g)
-  local gcb1 = graph.copy_badly(g, 1)
-  local gcb2 = graph.copy_badly(g)
-  for i=1,#g.edges do
-    print("Edge " .. i .. ": \t"
-      .. g.edges[i].reward .. ", \t" .. gc.edges[i].reward .. ", \t"
-      .. gcb1.edges[i].reward .. ", \t" .. gcb2.edges[i].reward)
-  end
-end
-
-local function graph_update_edge_reward ()
-  local g = graph.generate_graph(10, 10, graph.generate_all_edges)
-  local gc = graph.copy_badly(g, 50)
-  local sample = {from=1, to=2, reward=g.nodes[1].edges[2].reward}
-  for i=1,20 do
-    print("N = " .. i .. "\t"
-      .. g.edges[1].reward .. ", \t" .. gc.edges[1].reward)
-    graph.update_edge_reward(gc, sample)
-  end
-end
-
-local function graph_update_edge_rewards ()
-  local g = graph.generate_graph(10, 10, graph.generate_all_edges)
-  local gc = graph.copy_badly(g, 50)
-  local samples = {
-    {from=1, to=2, reward=g.nodes[1].edges[2].reward},
-    {from=1, to=3, reward=g.nodes[1].edges[3].reward}}
-  for i=1,20 do
-    print("N = " .. i .. "\t"
-      .. g.nodes[1].edges[2].reward .. ", \t"
-      .. gc.nodes[1].edges[2].reward .. ", \t"
-      .. g.nodes[1].edges[3].reward .. ", \t"
-      .. gc.nodes[1].edges[3].reward)
-    graph.update_edge_rewards(gc, samples)
-  end
-end
-
-
-navigate_graph()
 
 --[[--
-search()
-tick_suppress_failure()
-tick_negate()
-graph_copy()
-graph_update_edge_reward()
-graph_update_edge_rewards()
+ex.graph_copy()
+ex.graph_update_edge_reward()
+ex.graph_update_edge_rewards()
+ex.navigate_graph()
+ex.search()
+ex.tick_suppress_failure()
+ex.tick_negate()
 --]]--
+
+return ex

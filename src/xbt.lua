@@ -1,4 +1,4 @@
---- Extended Behavior Trees in Lua(JIT).
+-- Extended Behavior Trees in Lua(JIT).
 -- @copyright © 2015, Matthias Hölzl
 -- @author Matthias Hölzl
 -- @license MIT, see the file LICENSE.md.
