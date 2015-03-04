@@ -456,7 +456,7 @@ function graph.path (g, n1, n2)
   local rewards,next = g.rewards,g.next
   local u = type(n1) == "number" and n1 or n1.id
   local v = type(n2) == "number" and n2 or n2.id
-  local path = {n1.id}
+  local path = {u}
   if u == v then
     return path
   elseif not next[u][v] then
