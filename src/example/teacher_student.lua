@@ -318,6 +318,7 @@ local function print_teacher_info (episode_teacher)
 end
 
 local print_reward_only = false
+print_reward_only = true
 
 local function print_episode (episode)
   if print_reward_only then
@@ -378,9 +379,9 @@ end
 local function make_scenario (
     num_robots, num_nodes, num_steps, num_home_nodes,
     victim_nodes, diameter, teachers, epsilon, epsilon_min,
-    damage, teachers_learn)
-  num_robots = num_robots or 50 -- 50
-  num_nodes = num_nodes or 200 -- 200
+    damage, teachers_learn, victim_value)
+  num_robots = num_robots or 10 -- 50
+  num_nodes = num_nodes or 100 -- 200
   num_steps = num_steps or 25000 -- 25000
   num_home_nodes = num_home_nodes or 1
   victim_nodes = math.max(2, victim_nodes or num_nodes / 20)
@@ -388,7 +389,7 @@ local function make_scenario (
     local nv = victim_nodes
     victim_nodes = {}
     for i=1,nv do
-      victim_nodes[i] = 10000
+      victim_nodes[i] = victim_value or 2000
     end
   end
   diameter = diameter or 500
@@ -417,14 +418,20 @@ end
 
 local default_scenario
   = make_scenario()
+local default_1_scenario
+  = make_scenario(1, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 local perfect_info_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, false, false)
 local damage_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, "once")
+local damage_1_scenario
+  = make_scenario(1, nil, nil, nil, nil, nil, nil, nil, nil, "once", nil)
 local perfect_info_damage_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, "once", false)
 local multi_damage_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, nil, nil, nil, "multi")
+local multi_damage_1_scenario
+  = make_scenario(1, nil, nil, nil, nil, nil, nil, nil, nil, "multi", nil)
 local perfect_info_multi_damage_scenario
   = make_scenario(nil, nil, nil, nil, nil, nil, {{p_gen=0, p_del=0, err=0}}, 0, 0, "multi", false)
 
@@ -506,18 +513,24 @@ end
 --- Run the rescue scenario.
 local function main()
   print("XBTs are ready to go.")
---  print("Perfect info:")
---  rescue_scenario(perfect_info_scenario)
+  print("Perfect info:")
+  rescue_scenario(perfect_info_scenario)
   print("Default:")
   rescue_scenario(default_scenario)
---  print("Perfect info with damage:")
---  rescue_scenario(perfect_info_damage_scenario)
+  print("Default, 1 robot:")
+  rescue_scenario(default_1_scenario)
+  print("Perfect info with damage:")
+  rescue_scenario(perfect_info_damage_scenario)
   print("Default with damage:")
   rescue_scenario(damage_scenario)
---  print("Perfect info with multiple damage:")
---  rescue_scenario(perfect_info_multi_damage_scenario)
+  print("Default with damage, 1 robot:")
+  rescue_scenario(damage_1_scenario)
+  print("Perfect info with multiple damage:")
+  rescue_scenario(perfect_info_multi_damage_scenario)
   print("Default with multiple damage:")
   rescue_scenario(multi_damage_scenario)
+  print("Default with multiple damage, 1 robot:")
+  rescue_scenario(multi_damage_1_scenario)
   print("Done!")
 end
 
