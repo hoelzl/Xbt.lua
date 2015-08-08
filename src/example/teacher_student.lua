@@ -318,7 +318,7 @@ local function print_teacher_info (episode_teacher)
 end
 
 local print_reward_only = false
-print_reward_only = true
+-- print_reward_only = true
 
 local function print_episode (episode)
   if print_reward_only then
@@ -389,7 +389,7 @@ local function make_scenario (
     local nv = victim_nodes
     victim_nodes = {}
     for i=1,nv do
-      victim_nodes[i] = victim_value or 2000
+      victim_nodes[i] = victim_value or 10000
     end
   end
   diameter = diameter or 500
